@@ -50,14 +50,15 @@ def processFitsFile(file):
     hdu = fits.open(file)
     table = hdu[1]
     header = table.header
-    night = header['NIGHT']
-    runId = header['RUNID']
     runType = RunType[header['RUNTYPE']].value # convert to id
     
     if not runType in [1,2]: # only process data files
         print("File: '"+ file + "' is not a data file skipping")
         return
 
+    night = header['NIGHT']
+    runId = header['RUNID']
+    
     if checkIfProcessed(night, runId):
         print("File: ", file, " already processed skipping")
         return
