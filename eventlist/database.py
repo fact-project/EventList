@@ -54,7 +54,7 @@ def processFitsFile(file):
     runType = RunType[header['RUNTYPE']].value # convert to id
     
     if not runType in [1,2]: # only process data files
-        print("File: '"+ file + "' is not a data file skipping")
+        print("File: '"+ file + "' is not a data file skipping, runType: "+runType)
         return
 
     night = header['NIGHT']
@@ -80,7 +80,7 @@ def processZFitsFile(file):
     f = FactFits(file)
     header = f.header()
     
-    runType = header['RUNID']
+    runType = RunType[header['RUNID']].value
     if not runType in [1,2]: # only process data files
         print("File: '"+ file + "' is not a data file skipping")
         return
