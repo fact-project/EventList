@@ -23,6 +23,8 @@ setup(
         'peewee',
         'pyfact',
         'astropy',
+        'click',
+        'astropy',
     ],
     entry_points={
         'console_scripts': [
