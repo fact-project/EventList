@@ -9,6 +9,7 @@ from enum import Enum
 class RunType(Enum):
     data = 1
     pedestal = 2
+    ped_and_lp_ext = 11
     custom = 100
 
 
@@ -78,9 +79,13 @@ from zfits import FactFits
 def processZFitsFile(file):
     f = FactFits(file)
     header = f.header()
+    
+    if not runType in [1,2]: # only process data files
+        print("File: '"+ file + "' is not a data file skipping")
+        return
+
     night = header['NIGHT']
     runId = header['RUNID']
-    runType = RunType[header['RUNTYPE']].value # convert to id
     
     if checkIfProcessed(night, runId):
         print("File: ", file, " already processed skipping")
