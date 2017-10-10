@@ -51,10 +51,10 @@ def processFitsFile(file):
     hdu = fits.open(file)
     table = hdu[1]
     header = table.header
-    runType = header['RUNTYPE']
     
+    runType = str(header['RUNTYPE']).strip()
     if not runType in ["data","pedestal"]: # only process data files
-        print("File: '"+ file + "' is not a data file skipping, runType: "+str(runType))
+        print("File: '"+ file + "' is not a data file skipping, runType: '"+str(runType)+"'")
         return
 
     night = header['NIGHT']
@@ -80,16 +80,16 @@ def processZFitsFile(file):
     f = FactFits(file)
     header = f.header()
     
-    runType = str(header['RUNTYPE'])
+    runType = str(header['RUNTYPE']).strip()
     if not runType in ["data","pedestal"]: # only process data files
-        print("File: '"+ file + "' is not a data file skipping, runType: "+str(runType))
+        print("  File: '"+ file + "' is not a data file skipping, runType: '"+str(runType)+"'")
         return
 
     night = header['NIGHT']
     runId = header['RUNID']
     
     if checkIfProcessed(night, runId):
-        print("File: ", file, " already processed skipping")
+        print("  File: ", file, " already processed skipping")
         return
 
     numEvents = header['ZNAXIS2']
@@ -126,11 +126,11 @@ def fillEvents(rawfolder):
         ext = os.path.splitext(file)[1]
         if ext == ".gz":
             if file[-12:] == ".drs.fits.gz":
-                print("Drs File Skipping")
+                print("  Drs File Skipping")
                 continue
             processFitsFile(file)
         elif ext == ".fz":
             processZFitsFile(file)
         else:
-            print("Unknown extension: '"+ext+"' of file: '"+file+"', skipping")
+            print("  Unknown extension: '"+ext+"' of file: '"+file+"', skipping")
 
