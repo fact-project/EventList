@@ -23,7 +23,6 @@ setup(
         'peewee',
         'pyfact',
         'astropy',
-        'erna',
     ],
     entry_points={
         'console_scripts': [

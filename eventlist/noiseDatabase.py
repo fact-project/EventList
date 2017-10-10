@@ -3,7 +3,8 @@ import click
 from glob import glob
 import os
 import numpy as np
-import sqlalchemy
+
+import pandas as pd
 
 from fact.credentials import create_factdb_engine, get_credentials
 from fact.factdb import *
@@ -24,11 +25,6 @@ def getDrsFiles(night):
     
     df = read_into_dataframe(query)
     return df
-    
-def getDrsFilesNight(engine, night):
-    from erna.datacheck import get_drs_runs
-    drs_condition = ["fNight = {}".format(night)]
-    return get_drs_runs(engine, drs_condition, columns=('fNight AS NIGHT', 'fRunID AS RUNID', 'fRunStart AS START'))
 
 def getClosestDrsFile(drsFiles, startTime):
     delta = np.abs(drsFiles['START']-startTime)
@@ -51,18 +47,22 @@ def getRunInfos(night, runid):
             RunInfo.frunid,
             RunInfo.fcurrentsmedmean,
             RunInfo.fzenithdistancemean,
-            RunInfo.fsourcekey,
             RunInfo.fmoonzenithdistance,
+            Source.fsourcename,
         )
+        .join(Source, on=(Source.fsourcekey == RunInfo.fsourcekey))
         .where(RunInfo.fnight == night)
         .where(RunInfo.frunid == runid)
     )
     
     df = read_into_dataframe(query)
-    print(df)
+    #print(df)
+    if len(df) == 0:
+        raise LookupError("Missing run infos")
+
     current = df.fCurrentsMedMean.values[0]
     zd = df.fZenithDistanceMean.values[0]
-    source = df.fSourceKEY.values[0]
+    source = df.fSourceName.values[0]
     moonZdDist = df.fMoonZenithDistance.values[0]
     return [current, zd, source, moonZdDist]
 
@@ -77,10 +77,6 @@ def main(outdb):
     dbconfig["password"] = password
     db.init(**dbconfig)
     db.connect()
-
-    creds = get_credentials()
-    factdbcreds = dict(creds['database'])
-    factdb = sqlalchemy.create_engine("mysql+pymysql://{}:{}@{}/{}".format(factdbcreds['user'],factdbcreds['password'],factdbcreds['host'],factdbcreds['database']))
     
     #data = Event.select().where((Event.eventType == 1024) | (Event.eventType == 1))
     data = Event.select().where((Event.eventType == 1) | (Event.eventType == 4))
@@ -117,4 +113,4 @@ def main(outdb):
     df_temp = pd.DataFrame(noiseData, columns=
                 ['eventNr', 'UTC','NIGHT','RUNID', 'drs0', 'drs1',
                  'currents', 'zd', 'source','moonZdDist'])
-    df_temp.to_json(outdb, orient='records')
+    df_temp.to_json(outdb, orient='records', lines=True)
