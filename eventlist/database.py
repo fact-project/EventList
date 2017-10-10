@@ -61,18 +61,26 @@ def processFitsFile(file):
     runId = header['RUNID']
     
     if checkIfProcessed(night, runId):
-        print("File: ", file, " already processed skipping")
+        print("  File: ", file, " already processed skipping")
         return
 
     numEvents = header['NAXIS2']
+    data = []
     for i in range(numEvents):
         eventNr = table.data['EventNum'][i]
         utc = table.data['UnixTimeUTC'][i]
         eventType = table.data['TriggerType'][i]
         
-        newEvent = Event(night=night, runId=runId, eventNr=eventNr, UTC=utc[0], UTCus=utc[1],
-                         eventType=eventType, runType = RunType[runType].value)
-        newEvent.save()
+        
+        tmp = {"night":night, "runId":runId, "eventNr":eventNr,"UTC":utc[0], "UTCus":utc[1], "eventType":eventType, "runType":RunType[runType].value}
+        data.append(tmp)
+        #newEvent = Event(night=night, runId=runId, eventNr=eventNr, UTC=utc[0], UTCus=utc[1],
+        #                 eventType=eventType, runType = RunType[runType].value)
+        #newEvent.save()
+    print("  Insert data into DB")
+    
+    with db.atomic():
+        Event.insert_many(data).execute()
 
 
 from zfits import FactFits
@@ -93,15 +101,21 @@ def processZFitsFile(file):
         return
 
     numEvents = header['ZNAXIS2']
+    data = []
     for i, event in enumerate(f):
         eventNr = event['EventNum']
         utc = event['UnixTimeUTC']
         eventType = event['TriggerType']
         
-        newEvent = Event(night=night, runId=runId, eventNr=eventNr, UTC=utc[0], UTCus=utc[1],
-                         eventType=eventType, runType = RunType[runType].value)
-        newEvent.save()
+        tmp = {"night":night, "runId":runId, "eventNr":eventNr,"UTC":utc[0], "UTCus":utc[1], "eventType":eventType, "runType":RunType[runType].value}
+        data.append(tmp)
+        
+        #newEvent = Event(night=night, runId=runId, eventNr=eventNr, UTC=utc[0], UTCus=utc[1],
+        #                 eventType=eventType, runType = RunType[runType].value)
+        #newEvent.save()
     
+    with db.atomic():
+        Event.insert_many(data).execute()
 
 def createTables():
     db.connect()
@@ -122,7 +136,7 @@ def fillEvents(rawfolder):
     amount = len(files)
 
     for index, file in enumerate(files):
-        print("Prozess: '"+file+"', "+str(index+1)+"/"+str(amount))
+        print("Process: '"+file+"', "+str(index+1)+"/"+str(amount))
         ext = os.path.splitext(file)[1]
         if ext == ".gz":
             if file[-12:] == ".drs.fits.gz":
