@@ -54,7 +54,7 @@ def processFitsFile(file):
     runType = header['RUNTYPE']
     
     if not runType in ["data","pedestal"]: # only process data files
-        print("File: '"+ file + "' is not a data file skipping, runType: "+runType)
+        print("File: '"+ file + "' is not a data file skipping, runType: "+str(runType))
         return
 
     night = header['NIGHT']
@@ -82,7 +82,7 @@ def processZFitsFile(file):
     
     runType = header['RUNTYPE']
     if not runType in ["data","pedestal"]: # only process data files
-        print("File: '"+ file + "' is not a data file skipping")
+        print("File: '"+ file + "' is not a data file skipping: runType: "+str(runType))
         return
 
     night = header['NIGHT']
