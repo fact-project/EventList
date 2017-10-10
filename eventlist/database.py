@@ -121,6 +121,8 @@ def fillEvents(rawfolder):
         print("Prozess: '"+file+"', "+str(index+1)+"/"+str(amount))
         ext = os.path.splitext(file)[1]
         if ext == ".gz":
+            if file[-12:] == ".drs.fits.gz":
+                continue
             processFitsFile(file)
         elif ext == ".fz":
             processZFitsFile(file)
