@@ -111,10 +111,6 @@ def fillEvents(rawfolder):
     db.init(**dbconfig)
     
     createTables()
-    #processFitsFile("/home/tarrox/physik/fact-tools/src/main/resources/testDataFile.fits.gz")
-    processZFitsFile("/home/tarrox/physik/fact-tools/src/test/resources/testDataFile.fits.fz")
-    
-    return 
 
     files = sorted(glob(rawfolder+"/**/*.fits.*", recursive=True))
     amount = len(files)
@@ -130,8 +126,4 @@ def fillEvents(rawfolder):
             processZFitsFile(file)
         else:
             print("Unknown extension: '"+ext+"' of file: '"+file+"', skipping")
-        
-        
-    #checkIfProcessed(20130102,60)
-    #checkIfProcessed(20130102,5)
-    #checkIfProcessed(20160817,16)
+
