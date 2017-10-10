@@ -51,9 +51,9 @@ def processFitsFile(file):
     hdu = fits.open(file)
     table = hdu[1]
     header = table.header
-    runType = RunType[header['RUNTYPE']].value # convert to id
+    runType = header['RUNTYPE']
     
-    if not runType in [1,2]: # only process data files
+    if not runType in ["data","pedestal"]: # only process data files
         print("File: '"+ file + "' is not a data file skipping, runType: "+runType)
         return
 
@@ -71,7 +71,7 @@ def processFitsFile(file):
         eventType = table.data['TriggerType'][i]
         
         newEvent = Event(night=night, runId=runId, eventNr=eventNr, UTC=utc[0], UTCus=utc[1],
-                         eventType=eventType, runType = runType)
+                         eventType=eventType, runType = RunType[runType].value)
         newEvent.save()
 
 
@@ -80,8 +80,8 @@ def processZFitsFile(file):
     f = FactFits(file)
     header = f.header()
     
-    runType = RunType[header['RUNID']].value
-    if not runType in [1,2]: # only process data files
+    runType = header['RUNTYPE']
+    if not runType in ["data","pedestal"]: # only process data files
         print("File: '"+ file + "' is not a data file skipping")
         return
 
@@ -99,7 +99,7 @@ def processZFitsFile(file):
         eventType = event['TriggerType']
         
         newEvent = Event(night=night, runId=runId, eventNr=eventNr, UTC=utc[0], UTCus=utc[1],
-                         eventType=eventType, runType = runType)
+                         eventType=eventType, runType = RunType[runType].value)
         newEvent.save()
     
 
