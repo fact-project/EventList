@@ -6,6 +6,12 @@ import numpy as np
 from fact.credentials import get_credentials
 
 from enum import Enum
+
+from playhouse.shortcuts import RetryOperationalError
+
+class MyRetryDB(RetryOperationalError, pew.MySQLDatabase):
+    pass
+
 class RunType(Enum):
     data = 1
     pedestal = 2
@@ -20,7 +26,7 @@ dbconfig = {
     "password" : "<password>"
 }
     
-db = pew.MySQLDatabase(None)
+db = MyRetryDB(None)
 
 class Event(pew.Model):
     night = pew.IntegerField()
@@ -67,6 +73,8 @@ def processFitsFile(file):
     numEvents = header['NAXIS2']
     data = []
     for i in range(numEvents):
+        if i%100==0:
+            print("  "+str(i)+"/"+str(numEvents))
         eventNr = table.data['EventNum'][i]
         utc = table.data['UnixTimeUTC'][i]
         eventType = table.data['TriggerType'][i]
@@ -103,6 +111,8 @@ def processZFitsFile(file):
     numEvents = header['ZNAXIS2']
     data = []
     for i, event in enumerate(f):
+        if i%100==0:
+            print("  "+str(i)+"/"+str(numEvents))
         eventNr = event['EventNum']
         utc = event['UnixTimeUTC']
         eventType = event['TriggerType']
