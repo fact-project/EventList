@@ -4,7 +4,6 @@ from glob import glob
 import os
 import numpy as np
 from fact.credentials import get_credentials
-from astropy.io import fits
 
 from enum import Enum
 class RunType(Enum):
@@ -44,7 +43,9 @@ def checkIfProcessed(night, runId):
     except pew.DoesNotExist:
         return False
     return True
-    
+
+
+from astropy.io import fits
 def processFitsFile(file):
     hdu = fits.open(file)
     table = hdu[1]
@@ -71,9 +72,10 @@ def processFitsFile(file):
                          eventType=eventType, runType = runType)
         newEvent.save()
 
-from zfits import ZFits
+
+from zfits import FactFits
 def processZFitsFile(file):
-    f = ZFits(file)
+    f = FactFits(file)
     header = f['Events'].read_header()
     night = header['NIGHT']
     runId = header['RUNID']
@@ -99,11 +101,9 @@ def createTables():
     db.create_tables([Event], safe=True)
 
 
-import sqlalchemy
-
 @click.command()
-@click.argument('rawFolder', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True) )
-def main(rawFolder):
+@click.argument('rawfolder', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True))
+def fillEvents(rawfolder):
     creds = get_credentials()
     password = dict(creds['sandbox'])['password']
     dbconfig["password"] = password
@@ -113,7 +113,7 @@ def main(rawFolder):
     #processFitsFile("/home/tarrox/physik/fact-tools/src/main/resources/testDataFile.fits.gz")
     #processZFitsFile("/home/tarrox/physik/fact-tools/src/test/resources/testDataFile.fits.fz")
     
-    files = sorted(glob(rawFolder+"/**/*.fits.*", recursive=True))
+    files = sorted(glob(rawfolder+"/**/*.fits.*", recursive=True))
     amount = len(files)
 
     for index, file in enumerate(files):

@@ -25,10 +25,11 @@ setup(
         'astropy',
         'click',
         'astropy',
+        'zfits',
     ],
     entry_points={
         'console_scripts': [
-            'eventlist = eventlist.database:main',
+            'eventlist = eventlist.database:fillEvents',
             'noisedb = eventlist.noiseDatabase:main',
         ],
     },
