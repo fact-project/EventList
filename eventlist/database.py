@@ -77,7 +77,7 @@ def processFitsFile(file):
 from zfits import FactFits
 def processZFitsFile(file):
     f = FactFits(file)
-    header = f['Events'].read_header()
+    header = f.header()
     night = header['NIGHT']
     runId = header['RUNID']
     runType = RunType[header['RUNTYPE']].value # convert to id
@@ -87,10 +87,10 @@ def processZFitsFile(file):
         return
 
     numEvents = header['ZNAXIS2']
-    for i in range(numEvents):
-        eventNr = f.get('Events', 'EventNum', i)
-        utc = f.get('Events', 'UnixTimeUTC', i)
-        eventType = f.get('Events', 'TriggerType', i)
+    for i, event in enumerate(f):
+        eventNr = event['EventNum']
+        utc = event['UnixTimeUTC']
+        eventType = event['TriggerType']
         
         newEvent = Event(night=night, runId=runId, eventNr=eventNr, UTC=utc[0], UTCus=utc[1],
                          eventType=eventType, runType = runType)
@@ -112,8 +112,10 @@ def fillEvents(rawfolder):
     
     createTables()
     #processFitsFile("/home/tarrox/physik/fact-tools/src/main/resources/testDataFile.fits.gz")
-    #processZFitsFile("/home/tarrox/physik/fact-tools/src/test/resources/testDataFile.fits.fz")
+    processZFitsFile("/home/tarrox/physik/fact-tools/src/test/resources/testDataFile.fits.fz")
     
+    return 
+
     files = sorted(glob(rawfolder+"/**/*.fits.*", recursive=True))
     amount = len(files)
 
