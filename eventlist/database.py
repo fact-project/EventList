@@ -80,6 +80,7 @@ def processZFitsFile(file):
     f = FactFits(file)
     header = f.header()
     
+    runType = header['RUNID']
     if not runType in [1,2]: # only process data files
         print("File: '"+ file + "' is not a data file skipping")
         return
