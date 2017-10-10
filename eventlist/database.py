@@ -80,9 +80,9 @@ def processZFitsFile(file):
     f = FactFits(file)
     header = f.header()
     
-    runType = header['RUNTYPE']
+    runType = str(header['RUNTYPE'])
     if not runType in ["data","pedestal"]: # only process data files
-        print("File: '"+ file + "' is not a data file skipping: runType: "+str(runType))
+        print("File: '"+ file + "' is not a data file skipping, runType: "+str(runType))
         return
 
     night = header['NIGHT']
@@ -126,6 +126,7 @@ def fillEvents(rawfolder):
         ext = os.path.splitext(file)[1]
         if ext == ".gz":
             if file[-12:] == ".drs.fits.gz":
+                print("Drs File Skipping")
                 continue
             processFitsFile(file)
         elif ext == ".fz":
