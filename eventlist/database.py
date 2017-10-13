@@ -134,7 +134,8 @@ def createTables():
 
 @click.command()
 @click.argument('rawfolder', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True))
-def fillEvents(rawfolder):
+@click.argument('logfile', type=click.Path(exists=False, dir_okay=False, file_okay=True, readable=True))
+def fillEvents(rawfolder, logfile):
     creds = get_credentials()
     password = dict(creds['sandbox'])['password']
     dbconfig["password"] = password
@@ -144,17 +145,29 @@ def fillEvents(rawfolder):
 
     files = sorted(glob(rawfolder+"/**/*.fits.*", recursive=True))
     amount = len(files)
-
-    for index, file in enumerate(files):
-        print("Process: '"+file+"', "+str(index+1)+"/"+str(amount))
-        ext = os.path.splitext(file)[1]
-        if ext == ".gz":
-            if file[-12:] == ".drs.fits.gz":
-                print("  Drs File Skipping")
-                continue
-            processFitsFile(file)
-        elif ext == ".fz":
-            processZFitsFile(file)
-        else:
-            print("  Unknown extension: '"+ext+"' of file: '"+file+"', skipping")
+    
+    
+    with open(logfile,"w") as log:
+        for index, file in enumerate(files):
+            print("Process: '"+file+"', "+str(index+1)+"/"+str(amount))
+            try:
+                ext = os.path.splitext(file)[1]
+                if ext == ".gz":
+                    if file[-12:] == ".drs.fits.gz":
+                        print("  Drs File Skipping")
+                        continue
+                    processFitsFile(file)
+                elif ext == ".fz":
+                    processZFitsFile(file)
+                else:
+                    print("  Unknown extension: '"+ext+"' of file: '"+file+"', skipping")
+            except Exception as e:
+                print("  Caught: "+e.massage)
+                log.write("###File: "+file+" ###\n")
+                log.write("###doc###\n")
+                log.write(e.__doc__)
+                log.write("\n###Message###\n")
+                log.write(e.message)
+                log.write("###end###")
+            
 
