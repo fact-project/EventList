@@ -162,7 +162,7 @@ def fillEvents(rawfolder, logfile):
                 else:
                     print("  Unknown extension: '"+ext+"' of file: '"+file+"', skipping")
             except Exception as e:
-                print("  Caught: "+e.massage)
+                print("  Caught: "+e.message)
                 log.write("###File: "+file+" ###\n")
                 log.write("###doc###\n")
                 log.write(e.__doc__)
