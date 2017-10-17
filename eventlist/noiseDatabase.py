@@ -112,5 +112,5 @@ def main(outdb):
     
     df_temp = pd.DataFrame(noiseData, columns=
                 ['eventNr', 'UTC','NIGHT','RUNID', 'drs0', 'drs1',
-                 'currents', 'zd', 'source','moonZdDist'])
+                 'currents', 'Zd', 'source','moonZdDist'])
     df_temp.to_json(outdb, orient='records', lines=True)

@@ -136,7 +136,7 @@ def process_file(filename, outfolder=None):
         print("  Unknown extension: '"+ext+"' of file: '"+filename+"', skipping")
         return
     
-    if outfile:
+    if outfolder:
         outfile = outfolder+"/output-"+filename+"-.csv"
         print("  Write data into file: "+outfile)
         with open(outfile, "w") as out:
