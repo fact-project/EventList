@@ -124,6 +124,7 @@ def createTables():
 
 def process_file(filename, outfolder=None):
     ext = os.path.splitext(filename)[1]
+    basename = os.path.basename(filename)
     df = None
     if ext == ".gz":
         if filename[-12:] == ".drs.fits.gz":
@@ -137,7 +138,7 @@ def process_file(filename, outfolder=None):
         return
     
     if outfolder:
-        outfile = outfolder+"/output-"+filename+"-.csv"
+        outfile = outfolder+"/output-"+basename+"-.csv"
         print("  Write data into file: "+outfile)
         with open(outfile, "w") as out:
             df.to_csv(out, index=False)
