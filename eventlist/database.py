@@ -3,6 +3,7 @@ import click
 from glob import glob
 import os
 import numpy as np
+import pandas as pd
 from fact.credentials import get_credentials
 
 from enum import Enum
@@ -39,7 +40,7 @@ class Event(pew.Model):
     
     class Meta:
         database = db
-        db_table = "EventList"
+        db_table = "EventList_test"
         indexes = (
             (('night', 'runId', 'eventNr'), True),
         )
@@ -80,15 +81,9 @@ def processFitsFile(file):
         eventType = table.data['TriggerType'][i]
         
         
-        tmp = {"night":night, "runId":runId, "eventNr":eventNr,"UTC":utc[0], "UTCus":utc[1], "eventType":eventType, "runType":RunType[runType].value}
+        tmp = [night, runId, eventNr, utc[0], utc[1], eventType, RunType[runType].value]
         data.append(tmp)
-        #newEvent = Event(night=night, runId=runId, eventNr=eventNr, UTC=utc[0], UTCus=utc[1],
-        #                 eventType=eventType, runType = RunType[runType].value)
-        #newEvent.save()
-    print("  Insert data into DB")
-    
-    with db.atomic():
-        Event.insert_many(data).execute()
+    return pd.DataFrame(data, columns=["night", "runId", "eventNr","UTC", "UTCus", "eventType", "runType"])
 
 
 from zfits import FactFits
@@ -117,25 +112,46 @@ def processZFitsFile(file):
         utc = event['UnixTimeUTC']
         eventType = event['TriggerType']
         
-        tmp = {"night":night, "runId":runId, "eventNr":eventNr,"UTC":utc[0], "UTCus":utc[1], "eventType":eventType, "runType":RunType[runType].value}
+        tmp = [night, runId, eventNr, utc[0], utc[1], eventType, RunType[runType].value]
         data.append(tmp)
-        
-        #newEvent = Event(night=night, runId=runId, eventNr=eventNr, UTC=utc[0], UTCus=utc[1],
-        #                 eventType=eventType, runType = RunType[runType].value)
-        #newEvent.save()
+    return pd.DataFrame(data, columns=["night", "runId", "eventNr","UTC", "UTCus", "eventType", "runType"])
     
-    with db.atomic():
-        Event.insert_many(data).execute()
 
 def createTables():
     db.connect()
     db.create_tables([Event], safe=True)
 
 
+def process_file(filename, outfolder=None):
+    ext = os.path.splitext(filename)[1]
+    df = None
+    if ext == ".gz":
+        if filename[-12:] == ".drs.fits.gz":
+            print("  Drs File Skipping")
+            return
+        df = processFitsFile(filename)
+    elif ext == ".fz":
+        df = processZFitsFile(filename)
+    else:
+        print("  Unknown extension: '"+ext+"' of file: '"+filename+"', skipping")
+        return
+    
+    if outfile:
+        outfile = outfolder+"/output-"+filename+"-.csv"
+        print("  Write data into file: "+outfile)
+        with open(outfile, "w") as out:
+            df.to_csv(out, index=False)
+    else:
+        print("  Insert data into DB")
+        with db.atomic():
+            Event.insert_many(**(data.to_dict(orient='records'))).execute()
+
 @click.command()
 @click.argument('rawfolder', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True))
 @click.argument('logfile', type=click.Path(exists=False, dir_okay=False, file_okay=True, readable=True))
-def fillEvents(rawfolder, logfile):
+@click.option('--outfolder', default=None, type=click.Path(exists=False, dir_okay=True, file_okay=False, readable=True),
+      help="Use this output folder as the output, instead of the database.")
+def fillEvents(rawfolder, logfile, outfolder):
     creds = get_credentials()
     password = dict(creds['sandbox'])['password']
     dbconfig["password"] = password
@@ -151,23 +167,32 @@ def fillEvents(rawfolder, logfile):
         for index, file in enumerate(files):
             print("Process: '"+file+"', "+str(index+1)+"/"+str(amount))
             try:
-                ext = os.path.splitext(file)[1]
-                if ext == ".gz":
-                    if file[-12:] == ".drs.fits.gz":
-                        print("  Drs File Skipping")
-                        continue
-                    processFitsFile(file)
-                elif ext == ".fz":
-                    processZFitsFile(file)
-                else:
-                    print("  Unknown extension: '"+ext+"' of file: '"+file+"', skipping")
+                process_file(file, outfolder)
+                pass
             except Exception as e:
-                print("  Caught: "+e.message)
+                print("  Caught: "+str(type(e)))
                 log.write("###File: "+file+" ###\n")
                 log.write("###doc###\n")
-                log.write(e.__doc__)
-                log.write("\n###Message###\n")
-                log.write(e.message)
-                log.write("###end###")
-            
+                log.write(str(e.args))
+                log.write("###end###\n")
 
+
+@click.command()
+@click.argument('folder', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True))
+def fillEventsFromFiles(folder):
+    creds = get_credentials()
+    password = dict(creds['sandbox'])['password']
+    dbconfig["password"] = password
+    db.init(**dbconfig)    
+    createTables()
+
+    files = sorted(glob(folder+"/*.csv", recursive=True))
+    
+    for f in files:
+        print("Read csv file: "+f)
+        data = pd.read_csv(f, index_col=False)
+        print("  Insert data into DB")
+        with db.atomic():
+            Event.insert_many(data.to_dict(orient='records')).execute()
+
+    

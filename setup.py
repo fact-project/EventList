@@ -30,6 +30,7 @@ setup(
     entry_points={
         'console_scripts': [
             'eventlist = eventlist.database:fillEvents',
+            'eventlistfiles = eventlist.database:fillEventsFromFiles',
             'noisedb = eventlist.noiseDatabase:main',
         ],
     },
