@@ -8,7 +8,11 @@ from fact.credentials import get_credentials
 from fact.factdb import *
 from fact.factdb.utils import read_into_dataframe
 
+from erna.automatic_processing.qsub import (get_current_jobs, build_qsub_command)
+
+from .utils import load_config
 from .data import process_data_file
+
 import logging
 import time
 
@@ -140,8 +144,6 @@ def returnPathIfExists(rawfolder, night, runId):
         return path+".gz"
     return None
 
-from erna.automatic_processing.qsub import ( get_current_jobs, build_qsub_command)
-
 def getAllRunningFiles(jobs):
     """
     Get all files that are still running or are currently pending
@@ -163,7 +165,7 @@ def createQsub(file, log_dir, env, kwargs):
     basename = os.path.basename(file)
     
     executable = sp.check_output(
-        ['which', 'eventlistfile']
+        ['which', 'processFileEventList']
     ).decode().strip()
     
     
@@ -177,8 +179,6 @@ def createQsub(file, log_dir, env, kwargs):
     )
 
     return command
-
-from .utils import load_config
 
 @click.command()
 @click.argument('rawfolder', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True))
