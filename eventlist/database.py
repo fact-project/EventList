@@ -1,3 +1,4 @@
+import sys
 import peewee as pew
 import click
 from glob import glob
@@ -22,7 +23,7 @@ from playhouse.shortcuts import RetryOperationalError
 
 
 logger = logging.getLogger('EventList')
-logger.setLEvel(logging.DEBUG)
+logger.setLevel(logging.DEBUG)
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 
@@ -67,7 +68,7 @@ class ProcessStatus(Enum):
     processed = 1
     error = 2
 
-class FileType(enum):
+class FileType(Enum):
     unknown = 0
     fz = 1
     gz = 2
@@ -77,7 +78,7 @@ class ProcessingInfo(pew.Model):
     runId = pew.SmallIntegerField()
     fileType = pew.SmallIntegerField()
     status = pew.SmallIntegerField()
-    isdc = pew.BooleanFiled()
+    isdc = pew.BooleanField()
     
     class Meta:
         database = db
@@ -136,7 +137,7 @@ def returnPathIfExists(rawfolder, night, runId):
     month = (night%10000)//100
     day = night%100
     
-    path = os.path.join(rawfolder, "{:04d}/{:02d}/{:02d}/{:08d}_{:03d}.fits".format(year,month,day,night,runId)
+    path = os.path.join(rawfolder, "{:04d}/{:02d}/{:02d}/{:08d}_{:03d}.fits".format(year,month,day,night,runId))
     
     if os.path.exists(path+".fz"):
         return path+".fz"
@@ -153,7 +154,7 @@ def getAllRunningFiles(jobs):
     night = jobs.JB_name.str[10:18].astype(int)
     runId = jobs.JB_name.str[19:22].astype(int)
     
-    df = pd.DataFrame({'files':files, 'night':night, 'runId':runId)
+    df = pd.DataFrame({'files':files, 'night':night, 'runId':runId})
     return df
 
 
@@ -171,7 +172,7 @@ def createQsub(file, log_dir, env, kwargs):
     
     command = build_qsub_command(
         executable=executable,
-        job_name="eventlist_"+basename),
+        job_name="eventlist_"+basename,
         environment=env,
         stdout = os.path.join(log_dir, 'eventlist_{}.o'.format(basename)),
         stderr = os.path.join(log_dir, 'eventlist_{}.e'.format(basename)),
@@ -231,9 +232,9 @@ def processNewFiles(rawfolder, password, config):
         ext = os.path.splitext(path)[1][1:]
         if not path:
             # New file but missing on the isdc
-            newFiles.append({'night':night, 'runId'=runId, 'fileType'=0, status=0, isdc=True})
+            newFiles.append({'night':night, 'runId':runId, 'fileType':0, 'status':0, 'isdc':True})
         else:
-            newFiles.append({'night':night, 'runId'=runId, 'fileType'=FileType[ext].value, status=0, isdc=True})
+            newFiles.append({'night':night, 'runId':runId, 'fileType':FileType[ext].value, 'status':0, 'isdc':True})
     logger.info("Insert all new Files")
     with db.atomic():
         ProcessingInfo.insert_many(newFiles).execute()
@@ -267,8 +268,8 @@ def processNewFiles(rawfolder, password, config):
             month = (night%10000)//100
             day = night%100
         
-            path = os.path.join(rawfolder, "{:04d}/{:02d}/{:02d}/{:08d}_{:03d}.fits.{}".format(year, month, day, night, runID, ext)
-            logger.info("Processing night: {}, runId{}".format(nigth, runId))
+            path = os.path.join(rawfolder, "{:04d}/{:02d}/{:02d}/{:08d}_{:03d}.fits.{}".format(year, month, day, night, runID, ext))
+            logger.info("Processing night: {}, runId:{}".format(nigth, runId))
             logger.info("  Path: "+path);
             
             logger.info("Get all still running or pending files")
@@ -297,7 +298,7 @@ def processNewFiles(rawfolder, password, config):
         log.info('Clean up running jobs')
         current_jobs = get_current_jobs()
         myjobs = jobs[jobs.JB_name.str.startswith('eventlist_')]
-        for job in myjobs
+        for job in myjobs:
             sp.run(['qdel', job['JB_name']])
     logger.info("Finished")
         
@@ -307,7 +308,7 @@ def processNewFiles(rawfolder, password, config):
 @click.option('--file', default=None, type=click.Path(exists=True, dir_okay=False, file_okay=True, readable=True))
 @click.option('--password', default=None)
 @click.option('--ignore_db', is_flag=True, help="If given, ignore if the file is missing from the processing db and just add it")
-def fillEventsFile(file, password, ignore_db)
+def fillEventsFile(file, password, ignore_db):
     """
     Processes a file into the EventList db
     """
@@ -337,7 +338,7 @@ def fillEventsFile(file, password, ignore_db)
     try:
         df = process_data_file(file)
     except:
-        logger.error("Caught: "+str(type(e))
+        logger.error("Caught: "+str(type(e)))
         logger.error("###File: "+file+" ###\n")
         logger.error(str(e.args))
         logger.error("###end###\n")
