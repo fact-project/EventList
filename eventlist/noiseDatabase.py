@@ -106,7 +106,7 @@ def main(outdb):
             runInfos = getRunInfos(night, runId)
             print(runInfos)
             
-        print(d.eventNr)
+        #print(d.eventNr)
         res = [d.eventNr, d.UTC, d.night, d.runId, closestDrsFiles[0], closestDrsFiles[1]]+runInfos
         noiseData.append(res)
     
