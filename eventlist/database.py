@@ -5,7 +5,10 @@ import os
 import numpy as np
 import pandas as pd
 from fact.credentials import get_credentials
+from fact.factdb import *
+from fact.factdb.utils import read_into_dataframe
 
+from .data import process_data_file
 import logging
 import time
 
@@ -32,7 +35,7 @@ class RunType(Enum):
 dbconfig = {
     "host" : "fact-mysql.app.tu-dortmund.de",
     "database" : "eventlist",
-    "user" : "fact",
+    "user" : "<user>",
     "password" : "<password>"
 }
     
@@ -49,7 +52,7 @@ class Event(pew.Model):
     
     class Meta:
         database = db
-        db_table = "EventList_test"
+        db_table = "EventList"
         indexes = (
             (('night', 'runId', 'eventNr'), True),
         )
@@ -78,148 +81,11 @@ class ProcessingInfo(pew.Model):
         indexes = (
             (('night', 'runId'), True),
         )
-        
-
-    
-def checkIfProcessed(night, runId):
-    try:
-        Event.get((Event.night == night) & (Event.runId == runId))
-    except pew.DoesNotExist:
-        return False
-    return True
-
-
-from astropy.io import fits
-def processFitsFile(file):
-    hdu = fits.open(file)
-    table = hdu[1]
-    header = table.header
-    
-    runType = str(header['RUNTYPE']).strip()
-    if not runType in ["data","pedestal"]: # only process data files
-        print("File: '"+ file + "' is not a data file skipping, runType: '"+str(runType)+"'")
-        return
-
-    night = header['NIGHT']
-    runId = header['RUNID']
-    
-    if checkIfProcessed(night, runId):
-        print("  File: ", file, " already processed skipping")
-        return
-
-    numEvents = header['NAXIS2']
-    data = []
-    for i in range(numEvents):
-        if i%100==0:
-            print("  "+str(i)+"/"+str(numEvents))
-        eventNr = table.data['EventNum'][i]
-        utc = table.data['UnixTimeUTC'][i]
-        eventType = table.data['TriggerType'][i]
-        
-        
-        tmp = [night, runId, eventNr, utc[0], utc[1], eventType, RunType[runType].value]
-        data.append(tmp)
-    return pd.DataFrame(data, columns=["night", "runId", "eventNr","UTC", "UTCus", "eventType", "runType"])
-
-
-from zfits import FactFits
-def processZFitsFile(file):
-    f = FactFits(file)
-    header = f.header()
-    
-    runType = str(header['RUNTYPE']).strip()
-    if not runType in ["data","pedestal"]: # only process data files
-        print("  File: '"+ file + "' is not a data file skipping, runType: '"+str(runType)+"'")
-        return
-
-    night = header['NIGHT']
-    runId = header['RUNID']
-    
-    if checkIfProcessed(night, runId):
-        print("  File: ", file, " already processed skipping")
-        return
-
-    numEvents = header['ZNAXIS2']
-    data = []
-    for i, event in enumerate(f):
-        if i%100==0:
-            print("  "+str(i)+"/"+str(numEvents))
-        eventNr = event['EventNum']
-        utc = event['UnixTimeUTC']
-        eventType = event['TriggerType']
-        
-        tmp = [night, runId, eventNr, utc[0], utc[1], eventType, RunType[runType].value]
-        data.append(tmp)
-    return pd.DataFrame(data, columns=["night", "runId", "eventNr","UTC", "UTCus", "eventType", "runType"])
     
 
 def createTables():
     db.connect()
     db.create_tables([Event, Files], safe=True)
-
-
-def process_data_file(filename):
-    ext = os.path.splitext(filename)[1]
-    basename = os.path.basename(filename)
-    df = None
-    if ext == ".gz":
-        if filename[-12:] == ".drs.fits.gz":
-            logger.info("Drs File Skipping")
-            return
-        df = processFitsFile(filename)
-    elif ext == ".fz":
-        df = processZFitsFile(filename)
-    else:
-        logger.error("Unknown extension: '"+ext+"' of file: '"+filename+"', skipping")
-        return None
-    
-def process_file(filename, outfolder=None):
-    ext = os.path.splitext(filename)[1]
-    basename = os.path.basename(filename)
-    df = process_data_file(filename)
-
-    if not df:
-        return
-    
-    if outfolder:
-        outfile = outfolder+"/output-"+basename+"-.csv"
-        print("  Write data into file: "+outfile)
-        with open(outfile, "w") as out:
-            df.to_csv(out, index=False)
-    else:
-        print("  Insert data into DB")
-        with db.atomic():
-            Event.insert_many(**(df.to_dict(orient='records'))).execute()
-
-@click.command()
-@click.argument('rawfolder', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True))
-@click.argument('logfile', type=click.Path(exists=False, dir_okay=False, file_okay=True, readable=True))
-@click.option('--outfolder', default=None, type=click.Path(exists=False, dir_okay=True, file_okay=False, readable=True),
-      help="Use this output folder as the output, instead of the database.")
-def fillEvents(rawfolder, logfile, outfolder):
-    creds = get_credentials()
-    password = dict(creds['sandbox'])['password']
-    dbconfig["password"] = password
-    db.init(**dbconfig)
-    
-    createTables()
-
-    files = sorted(glob(rawfolder+"/**/*.fits.*", recursive=True))
-    amount = len(files)
-    
-    
-    with open(logfile,"w") as log:
-        for index, file in enumerate(files):
-            print("Process: '"+file+"', "+str(index+1)+"/"+str(amount))
-            try:
-                process_file(file, outfolder)
-                pass
-            except Exception as e:
-                print("  Caught: "+str(type(e)))
-                log.write("###File: "+file+" ###\n")
-                log.write("###doc###\n")
-                log.write(str(e.args))
-                log.write("###end###\n")
 
 
 def getAllNewFiles():
@@ -231,6 +97,8 @@ def getAllNewFiles():
             RunInfo.fnight.alias('night'),
             RunInfo.frunid.alias('runid'),
         )
+        .join(RawFileAvailISDCStatus)
+        .where(RawFileAvailISDCStatus.favailable.is_null(False))
         .where(RunInfo.not_in(ProcessingInfo))
         .where(RunInfo.froi == 300)
         .where((RunInfo.fruntypekey == 2)|(RunInfo.fruntypekey == 1))
@@ -309,37 +177,37 @@ def createQsub(file, log_dir, env, kwargs):
     )
 
     return command
-    
 
-from erna import utils
+from .utils import load_config
 
 @click.command()
 @click.argument('rawfolder', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True))
-@click.argument('logdir', type=click.Path(exists=False, dir_okey=True, file_okey=False, readable=True))
-@click.option('--queue', default='short')
-@click.option('--walltime', default='00:10:00')
 @click.option('--password', default=None)
 @click.option(
     '--config', '-c',
-    help='Config file, if not given, env ERNA_CONFIG and ./erna.yaml will be tried'
+    help='Config file, if not given, env EVENTLIST_CONFIG and ./eventlist.yaml will be tried'
 )
 @click.option(
     '--verbose', '-v', help='Set log level of "erna" to debug', is_flag=True,
 )
-def processNewFiles(rawfolder, logdir, queue, walltime, password, config):
+@click.option('--noProcess', is_flag=True, help='Only fill in the processing database')
+def processNewFiles(rawfolder, password, config):
     """
-    Processes a file into the EventList db
+    Processes all non processed files into the EventList db
     """
-        
+
     if verbose:
         logging.getLogger('EventList').setLevel(logging.DEBUG)
     else:
         logging.getLogger('EventList').setLevel(logging.INFO)
 
     logging.info("Load Config")
-    config = utils.load_config(config)
+    config = load_config(config)
     interval = config['submitter']['interval'],
     max_queued_jobs = config['submitter']['max_queued_jobs'],
+    log_dir = config['submitter']['data_directory']
+    queue = config['submitter']['queue']
+    walltime = config['submitter']['walltime']
     os.makedirs(logdir, exist_ok=True)
 
     if not password:
@@ -347,7 +215,7 @@ def processNewFiles(rawfolder, logdir, queue, walltime, password, config):
         password = dict(creds['sandbox'])['password']
     else:
         password = password
-    dbconfig["password"] = password
+    dbconfig = config['processing_database']
     db.init(**dbconfig)
     
     createTables()
@@ -368,8 +236,12 @@ def processNewFiles(rawfolder, logdir, queue, walltime, password, config):
             newFiles.append({'night':night, 'runId'=runId, 'fileType'=FileType[ext].value, status=0, isdc=True})
     logger.info("Insert all new Files")
     with db.atomic():
-        Event.insert_many(newFiles).execute()
+        ProcessingInfo.insert_many(newFiles).execute()
     
+    if no_process:
+        logger.info("Not processing files")
+        logger.info("Finished")
+        return
     logger.info("Get all unprocessed files")
     df = getAllNotProcessedFiles()
     
@@ -408,7 +280,7 @@ def processNewFiles(rawfolder, logdir, queue, walltime, password, config):
                 continue
             
             # create qsub command
-            cmd = create_qsub(path, logdir, qsub_env, qsub_kwargs)
+            cmd = create_qsub(path, log_dir, qsub_env, qsub_kwargs)
             
             # execute
             while True:
@@ -427,8 +299,7 @@ def processNewFiles(rawfolder, logdir, queue, walltime, password, config):
         myjobs = jobs[jobs.JB_name.str.startswith('eventlist_')]
         for job in myjobs
             sp.run(['qdel', job['JB_name']])
-
-        
+    logger.info("Finished")
         
     
 

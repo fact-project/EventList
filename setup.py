@@ -26,10 +26,10 @@ setup(
         'click',
         'astropy',
         'zfits',
+        'erna',
     ],
     entry_points={
         'console_scripts': [
-            'eventlist = eventlist.database:fillEvents',
             'processFileEventList = eventlist.database:fillEventsFile',
             'noisedb = eventlist.noiseDatabase:main',
             'updateEventList = eventlist.database:processNewFiles'
