@@ -6,9 +6,17 @@ import numpy as np
 import pandas as pd
 from fact.credentials import get_credentials
 
+import logging
+
 from enum import Enum
 
 from playhouse.shortcuts import RetryOperationalError
+
+
+logger = logging.getLogger('EventList')
+logger.setLEvel(logging.DEBUG)
+logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+
 
 class MyRetryDB(RetryOperationalError, pew.MySQLDatabase):
     pass
@@ -44,6 +52,22 @@ class Event(pew.Model):
         indexes = (
             (('night', 'runId', 'eventNr'), True),
         )
+
+
+class ProcessingInfo(pew.Model):
+    night = pew.IntegerField()
+    runId = pew.SmallIntegerField()
+    processed = pew.BooleanField(default=False)
+    isdc = pew.BooleanFiled(default=True)
+    
+    class Meta:
+        database = db
+        db_table = "File_Processing_Info"
+        indexes = (
+            (('night', 'runId'), True),
+        )
+        
+
     
 def checkIfProcessed(night, runId):
     try:
@@ -119,22 +143,30 @@ def processZFitsFile(file):
 
 def createTables():
     db.connect()
-    db.create_tables([Event], safe=True)
+    db.create_tables([Event, Files], safe=True)
 
 
-def process_file(filename, outfolder=None):
+def process_data_file(filename):
     ext = os.path.splitext(filename)[1]
     basename = os.path.basename(filename)
     df = None
     if ext == ".gz":
         if filename[-12:] == ".drs.fits.gz":
-            print("  Drs File Skipping")
+            logger.info("Drs File Skipping")
             return
         df = processFitsFile(filename)
     elif ext == ".fz":
         df = processZFitsFile(filename)
     else:
-        print("  Unknown extension: '"+ext+"' of file: '"+filename+"', skipping")
+        logger.error("Unknown extension: '"+ext+"' of file: '"+filename+"', skipping")
+        return None
+    
+def process_file(filename, outfolder=None):
+    ext = os.path.splitext(filename)[1]
+    basename = os.path.basename(filename)
+    df = process_data_file(filename)
+
+    if not df:
         return
     
     if outfolder:
@@ -145,7 +177,7 @@ def process_file(filename, outfolder=None):
     else:
         print("  Insert data into DB")
         with db.atomic():
-            Event.insert_many(**(data.to_dict(orient='records'))).execute()
+            Event.insert_many(**(df.to_dict(orient='records'))).execute()
 
 @click.command()
 @click.argument('rawfolder', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True))
@@ -178,22 +210,55 @@ def fillEvents(rawfolder, logfile, outfolder):
                 log.write("###end###\n")
 
 
-@click.command()
-@click.argument('folder', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True))
-def fillEventsFromFiles(folder):
-    creds = get_credentials()
-    password = dict(creds['sandbox'])['password']
-    dbconfig["password"] = password
-    db.init(**dbconfig)    
-    createTables()
 
-    files = sorted(glob(folder+"/*.csv", recursive=True))
+@click.command()
+@click.argument('file', type=click.Path(exists=True, dir_okay=False, file_okay=True, readable=True))
+@click.option('--password', default=None)
+def fillEventsFile(file, password)
+    """
+    Processes a file into the EventList db
+    """
+    if not password:
+        creds = get_credentials()
+        password = dict(creds['sandbox'])['password']
+    else:
+        password = password
+    dbconfig["password"] = password
+    db.init(**dbconfig)
     
-    for f in files:
-        print("Read csv file: "+f)
-        data = pd.read_csv(f, index_col=False)
-        print("  Insert data into DB")
-        with db.atomic():
-            Event.insert_many(data.to_dict(orient='records')).execute()
+    createTables()
+    
+    logger.info("Processing file: '"+file+"'")
+    
+    if not os.path.exists(file):
+        logger.error("File does not exists")
+        return
+
+    basename = os.path.basename(filename)
+    night = int(basename[:8])
+    runid = int(basename[9:11])
+    df = None
+    try:
+        df = process_data_file(file)
+    except:
+        logger.error("Caught: "+str(type(e))
+        logger.error("###File: "+file+" ###\n")
+        logger.error(str(e.args))
+        logger.error("###end###\n")
+
+    if not df:
+        logger.error("Couldn't process data file")
+    logger.info("Update db")
+    with db.atomic():
+        fileInfo = ProcessingInfo.get((Event.night == night) & (Event.runId == runId))
+        if fileInfo.processed:
+            logger.error("File is already processed, have you started the processing twice on this file?")
+            return
+        logger.debug("Insert Data")
+        Event.insert_many(**(df.to_dict(orient='records'))).execute()
+        
+        logger.debug("Update processing db")
+        fileInfo.processed = True
+        fileInfo.save()
 
     
