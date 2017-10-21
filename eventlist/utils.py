@@ -26,4 +26,4 @@ def load_config(filename=None):
     with open(filename, 'r') as f:
         config = yaml.safe_load(f)
 
-    return config
+    return config, os.path.abspath(filename)

@@ -183,9 +183,8 @@ def createQsub(file, log_dir, env, kwargs):
 
 @click.command()
 @click.argument('rawfolder', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True))
-@click.option('--password', default=None)
 @click.option(
-    '--config', '-c',
+    '--config', '-c', envvar='EVENTLIST_CONFIG',
     help='Config file, if not given, env EVENTLIST_CONFIG and ./eventlist.yaml will be tried'
 )
 @click.option(
@@ -202,8 +201,15 @@ def processNewFiles(rawfolder, password, config):
     else:
         logging.getLogger('EventList').setLevel(logging.INFO)
 
-    logging.info("Load Config")
-    config = load_config(config)
+    logger.info("Loading config")
+    if not config:
+        logger.error("No config specified, can't work without it")
+        return
+    conifg, configpath = load_config(config)
+    
+    dbconfig  = config['processing_database']
+    db.init(**dbconfig)
+    
     interval = config['submitter']['interval'],
     max_queued_jobs = config['submitter']['max_queued_jobs'],
     log_dir = config['submitter']['data_directory']
@@ -211,11 +217,6 @@ def processNewFiles(rawfolder, password, config):
     walltime = config['submitter']['walltime']
     os.makedirs(logdir, exist_ok=True)
 
-    if not password:
-        creds = get_credentials()
-        password = dict(creds['sandbox'])['password']
-    else:
-        password = password
     dbconfig = config['processing_database']
     db.init(**dbconfig)
     
@@ -243,12 +244,13 @@ def processNewFiles(rawfolder, password, config):
         logger.info("Not processing files")
         logger.info("Finished")
         return
+
     logger.info("Get all unprocessed files")
     df = getAllNotProcessedFiles()
     
     qsub_env = {
         "WALLTIME": walltime,
-        "FACT_PASSWORD": password,
+        'EVENTLIST_CONFIG': configpath,
     }
     
     qsub_kwargs = {
@@ -305,27 +307,32 @@ def processNewFiles(rawfolder, password, config):
     
 
 @click.command()
-@click.option('--file', default=None, type=click.Path(exists=True, dir_okay=False, file_okay=True, readable=True))
+@click.option(
+    '--config', '-c', envvar='EVENTLIST_CONFIG',
+    help='Config file, if not given, env EVENTLIST_CONFIG and ./eventlist.yaml will be tried'
+)
+@click.option('--file', default=None, envvar='FILE',
+    type=click.Path(exists=True, dir_okay=False, file_okay=True, readable=True)
+)
 @click.option('--password', default=None)
 @click.option('--ignore_db', is_flag=True, help="If given, ignore if the file is missing from the processing db and just add it")
-def fillEventsFile(file, password, ignore_db):
+def fillEventsFile(config, file, password, ignore_db):
     """
     Processes a file into the EventList db
     """
-    if not password:
-        creds = get_credentials()
-        password = dict(creds['sandbox'])['password']
-    else:
-        password = password
-    dbconfig["password"] = password
+    logger.info("Loading config")
+    if not config:
+        logger.error("No config specified, can't work without it")
+        return
+    conifg, configpath = load_config(config)
+    
+    
+    dbconfig  = config['processing_database']
     db.init(**dbconfig)
     
     createTables()
     
     logger.info("Processing file: '"+file+"'")
-    
-    if not file:
-        file = os.environ['FILE']
 
     if not os.path.exists(file):
         logger.error("File does not exists")
