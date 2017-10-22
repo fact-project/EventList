@@ -104,14 +104,19 @@ def getAllNewFiles(limit=None):
             RunInfo.fnight.alias('night'),
             RunInfo.frunid.alias('runId'),
         )
-        .join(RawFileAvailISDCStatus, on=((RunInfo.fnight==RawFileAvailISDCStatus.fnight)&(RunInfo.frunid==RawFileAvailISDCStatus.frunid)))
+        .join(RawFileAvailISDCStatus,
+            on=((RunInfo.fnight==RawFileAvailISDCStatus.fnight)&(RunInfo.frunid==RawFileAvailISDCStatus.frunid))
+        )
         .where(RawFileAvailISDCStatus.favailable.is_null(False))
-        .where(RunInfo.not_in(ProcessingInfo))
+        .join(ProcessingInfo, 'FULL OUTER JOIN', 
+            on=((RunInfo.fnight==ProcessingInfo.night)&(RunInfo.frunid==ProcessingInfo.runId))
+        )
         .where(RunInfo.froi == 300)
         .where((RunInfo.fruntypekey == 2)|(RunInfo.fruntypekey == 1))
         .where(RunInfo.fdrsstep.is_null(True))
     )
-    
+
+
     if limit:
         query = query.limit(limit)
     
