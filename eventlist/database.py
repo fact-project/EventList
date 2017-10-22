@@ -111,7 +111,7 @@ def getAllNewFiles(limit=None):
         .where((RunInfo.fruntypekey == 2)|(RunInfo.fruntypekey == 1))
         .where(RunInfo.fdrsstep.is_null(True))
     )
-    df_isdc = pd.DataFrame(list(query.dicts()))
+    df_isdc = pd.DataFrame(list(query.dicts()), columns=["night", "runId"])
     
     query = (
         ProcessingInfo.select(
@@ -119,7 +119,7 @@ def getAllNewFiles(limit=None):
             ProcessingInfo.runId,
         )
     )
-    df_processing = pd.DataFrame(list(query.dicts()))
+    df_processing = pd.DataFrame(list(query.dicts()), columns=["night","runId"])
     
     
     merged = pd.merge(df_isdc, df_processing, on=['night', 'runId'], how='left', indicator=True)
@@ -144,7 +144,7 @@ def getAllNotProcessedFiles():
         .where(ProcessingInto.isdc == True)
     )
     
-    df = = pd.DataFrame(list(query.dicts()))
+    df = pd.DataFrame(list(query.dicts()))
     return df
 
 def returnPathIfExists(rawfolder, night, runId):
@@ -156,6 +156,7 @@ def returnPathIfExists(rawfolder, night, runId):
     day = night%100
     
     path = os.path.join(rawfolder, "{:04d}/{:02d}/{:02d}/{:08d}_{:03d}.fits".format(year,month,day,night,runId))
+    print(path)
     
     if os.path.exists(path+".fz"):
         return path+".fz"
@@ -253,15 +254,16 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
     logger.info("Found: {} new files start processing".format(len(df)))
     newFiles = []
     logger.debug("Prepare the new files for the database")
-    for d in df:
-        night = d['night']
-        runId = d['runId']
-        path = returnPathIfExists(night, runId)
-        ext = os.path.splitext(path)[1][1:]
+    print(df)
+    for index, row in df.iterrows():
+        night = row['night']
+        runId = row['runId']
+        path = returnPathIfExists(rawfolder, night, runId)
         if not path:
             # New file but missing on the isdc
             newFiles.append({'night':night, 'runId':runId, 'fileType':0, 'status':0, 'isdc':False})
         else:
+            ext = os.path.splitext(path)[1][1:]
             newFiles.append({'night':night, 'runId':runId, 'fileType':FileType[ext].value, 'status':0, 'isdc':True})
     logger.info("Insert all new Files")
     with processing_db.atomic():
