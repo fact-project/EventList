@@ -3,6 +3,7 @@ import peewee as pew
 import click
 from glob import glob
 import os
+import subprocess as sp
 import numpy as np
 import pandas as pd
 from fact.credentials import get_credentials
@@ -66,16 +67,11 @@ class ProcessStatus(Enum):
     not_processed = 0
     processed = 1
     error = 2
-
-class FileType(Enum):
-    unknown = 0
-    fz = 1
-    gz = 2
     
 class ProcessingInfo(pew.Model):
     night = pew.IntegerField()
     runId = pew.SmallIntegerField()
-    fileType = pew.SmallIntegerField()
+    extension = pew.CharField(6)
     status = pew.SmallIntegerField()
     isdc = pew.BooleanField()
     
@@ -252,19 +248,20 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
     logger.debug("Getting all new files")
     df = getAllNewFiles(limit)
     logger.info("Found: {} new files start processing".format(len(df)))
+    
+    
     newFiles = []
     logger.debug("Prepare the new files for the database")
-    print(df)
     for index, row in df.iterrows():
         night = row['night']
         runId = row['runId']
         path = returnPathIfExists(rawfolder, night, runId)
         if not path:
             # New file but missing on the isdc
-            newFiles.append({'night':night, 'runId':runId, 'fileType':0, 'status':0, 'isdc':False})
+            newFiles.append({'night':night, 'runId':runId, 'extension':"", 'status':0, 'isdc':False})
         else:
             ext = os.path.splitext(path)[1][1:]
-            newFiles.append({'night':night, 'runId':runId, 'fileType':FileType[ext].value, 'status':0, 'isdc':True})
+            newFiles.append({'night':night, 'runId':runId, 'extension':ext, 'status':0, 'isdc':True})
     logger.info("Insert all new Files")
     with processing_db.atomic():
         ProcessingInfo.insert_many(newFiles).execute()
@@ -276,6 +273,7 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
 
     logger.info("Get all unprocessed files")
     df = getAllNotProcessedFiles()
+    logger.info("Found: {} unporcessed files, start processing".format(len(df)))
     
     qsub_env = {
         "WALLTIME": walltime,
@@ -290,11 +288,11 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
 
     logger.info("Process all unprocessed files")
     try:
-        for d in df:
-            night = d['night']
-            runId = d['runId']
+        for index, row in df.iterrows():
+            night = row['night']
+            runId = row['runId']
             
-            ext = FileType(d['fileType']).name
+            ext = row['extension']
             year = night//10000
             month = (night%10000)//100
             day = night%100
@@ -393,7 +391,7 @@ def fillEventsFile(config, file, password, ignore_db):
             else:
                 logger.info("The entry for the file is missing in the processing database, adding it.")
                 ext = os.path.splitext(path)[1][1:]
-                fileInfo = ProcessingInfo.create(night=night, runId=runId, fileType=FileType[ext].value, status=0, isdc=True)
+                fileInfo = ProcessingInfo.create(night=night, runId=runId, extension=ext, status=0, isdc=True)
 
         if fileInfo.status==1:
             logger.error("File is already processed, have you started the processing twice on this file?")
