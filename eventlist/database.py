@@ -44,7 +44,7 @@ dbconfig = {
     "password" : "<password>"
 }
     
-db = MyRetryDB(None)
+processing_db = MyRetryDB(None)
 
 class Event(pew.Model):
     night = pew.IntegerField()
@@ -56,7 +56,7 @@ class Event(pew.Model):
     runType = pew.SmallIntegerField()
     
     class Meta:
-        database = db
+        database = processing_db
         db_table = "EventList"
         indexes = (
             (('night', 'runId', 'eventNr'), True),
@@ -81,7 +81,7 @@ class ProcessingInfo(pew.Model):
     isdc = pew.BooleanField()
     
     class Meta:
-        database = db
+        database = processing_db
         db_table = "File_Processing_Info"
         indexes = (
             (('night', 'runId'), True),
@@ -89,8 +89,8 @@ class ProcessingInfo(pew.Model):
     
 
 def createTables():
-    db.connect()
-    db.create_tables([Event, ProcessingInfo], safe=True)
+    processing_db.connect()
+    processing_db.create_tables([Event, ProcessingInfo], safe=True)
 
 
 def getAllNewFiles(limit=None):
@@ -229,8 +229,6 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
         return
     config, configpath = load_config(config)    
 
-    dbconfig  = config['processing_database']
-    db.init(**dbconfig)
     
     interval = config['submitter']['interval'],
     max_queued_jobs = config['submitter']['max_queued_jobs'],
@@ -242,7 +240,7 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
     logger.info("Connect to the databases")
     logger.debug("Connect to processing database")
     dbconfig = config['processing_database']
-    db.init(**dbconfig)
+    processing_db.init(**dbconfig)
     
     createTables()
     
@@ -267,7 +265,7 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
         else:
             newFiles.append({'night':night, 'runId':runId, 'fileType':FileType[ext].value, 'status':0, 'isdc':True})
     logger.info("Insert all new Files")
-    with db.atomic():
+    with processing_db.atomic():
         ProcessingInfo.insert_many(newFiles).execute()
     
     if no_process:
@@ -358,7 +356,7 @@ def fillEventsFile(config, file, password, ignore_db):
     
     
     dbconfig  = config['processing_database']
-    db.init(**dbconfig)
+    processing_db.init(**dbconfig)
     
     createTables()
     
@@ -383,7 +381,7 @@ def fillEventsFile(config, file, password, ignore_db):
     if not df:
         logger.error("Couldn't process data file")
     logger.info("Update db")
-    with db.atomic():
+    with processing_db.atomic():
         fileInfo = None
         try:
             fileInfo = ProcessingInfo.get((ProcessingInfo.night == night) & (ProcessingInfo.runId == runId))
