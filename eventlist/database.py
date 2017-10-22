@@ -108,20 +108,29 @@ def getAllNewFiles(limit=None):
             on=((RunInfo.fnight==RawFileAvailISDCStatus.fnight)&(RunInfo.frunid==RawFileAvailISDCStatus.frunid))
         )
         .where(RawFileAvailISDCStatus.favailable.is_null(False))
-        .join(ProcessingInfo, 'FULL OUTER JOIN', 
-            on=((RunInfo.fnight==ProcessingInfo.night)&(RunInfo.frunid==ProcessingInfo.runId))
-        )
         .where(RunInfo.froi == 300)
         .where((RunInfo.fruntypekey == 2)|(RunInfo.fruntypekey == 1))
         .where(RunInfo.fdrsstep.is_null(True))
     )
-
-
-    if limit:
-        query = query.limit(limit)
+    df_isdc = read_into_dataframe(query)
     
-    df = read_into_dataframe(query)
-    return df
+    query = (
+        ProcessingInfo.select(
+            ProcessingInfo.night,
+            ProcessingInfo.runId,
+        )
+    )
+    df_processing = read_into_dataframe(query)
+    
+    
+    merged = pd.merge(df_isdc, df_processing, on=['night', 'runId'], how='left', indicator=True)
+    merged = merged[merged['_merge'] == 'left_only']
+    merged.drop('_merge', axis=1)
+    
+    if limit:
+        merged = merged.head(limit)
+    
+    return merged
     
 def getAllNotProcessedFiles():
     """
