@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 from fact.credentials import get_credentials
 from fact.factdb import (RunInfo, RawFileAvailISDCStatus, connect_database)
-from fact.factdb.utils import read_into_dataframe
 
 from erna.automatic_processing.qsub import (get_current_jobs, build_qsub_command)
 
@@ -112,7 +111,7 @@ def getAllNewFiles(limit=None):
         .where((RunInfo.fruntypekey == 2)|(RunInfo.fruntypekey == 1))
         .where(RunInfo.fdrsstep.is_null(True))
     )
-    df_isdc = read_into_dataframe(query)
+    df_isdc = pd.DataFrame(list(query.dicts()))
     
     query = (
         ProcessingInfo.select(
@@ -120,7 +119,7 @@ def getAllNewFiles(limit=None):
             ProcessingInfo.runId,
         )
     )
-    df_processing = read_into_dataframe(query)
+    df_processing = pd.DataFrame(list(query.dicts()))
     
     
     merged = pd.merge(df_isdc, df_processing, on=['night', 'runId'], how='left', indicator=True)
@@ -145,7 +144,7 @@ def getAllNotProcessedFiles():
         .where(ProcessingInto.isdc == True)
     )
     
-    df = read_into_dataframe(query)
+    df = = pd.DataFrame(list(query.dicts()))
     return df
 
 def returnPathIfExists(rawfolder, night, runId):
