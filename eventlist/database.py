@@ -90,7 +90,7 @@ class ProcessingInfo(pew.Model):
 
 def createTables():
     db.connect()
-    db.create_tables([Event, Files], safe=True)
+    db.create_tables([Event, ProcessingInfo], safe=True)
 
 
 def getAllNewFiles(limit=None):
@@ -102,9 +102,9 @@ def getAllNewFiles(limit=None):
     query = (
         RunInfo.select(
             RunInfo.fnight.alias('night'),
-            RunInfo.frunid.alias('runid'),
+            RunInfo.frunid.alias('runId'),
         )
-        .join(RawFileAvailISDCStatus)
+        .join(RawFileAvailISDCStatus, on=((RunInfo.fnight==RawFileAvailISDCStatus.fnight)&(RunInfo.frunid==RawFileAvailISDCStatus.frunid)))
         .where(RawFileAvailISDCStatus.favailable.is_null(False))
         .where(RunInfo.not_in(ProcessingInfo))
         .where(RunInfo.froi == 300)
@@ -195,11 +195,11 @@ def createQsub(file, log_dir, env, kwargs):
 @click.option(
     '--verbose', '-v', help='Set log level of "erna" to debug', is_flag=True,
 )
-@click.option('--noProcess', is_flag=True, help='Only fill in the processing database')
+@click.option('--no_process', is_flag=True, help='Only fill in the processing database')
 @click.option('--limit', type=int, default=None,
     help='specify if the amount of new files should be limited and by how much.'
 )
-def processNewFiles(rawfolder, password, config):
+def processNewFiles(rawfolder, no_process, config, limit, verbose):
     """
     Processes all non processed files into the EventList db
     """
@@ -213,8 +213,8 @@ def processNewFiles(rawfolder, password, config):
     if not config:
         logger.error("No config specified, can't work without it")
         return
-    conifg, configpath = load_config(config)
-    
+    config, configpath = load_config(config)    
+
     dbconfig  = config['processing_database']
     db.init(**dbconfig)
     
@@ -223,21 +223,21 @@ def processNewFiles(rawfolder, password, config):
     log_dir = config['submitter']['data_directory']
     queue = config['submitter']['queue']
     walltime = config['submitter']['walltime']
-    os.makedirs(logdir, exist_ok=True)
+    #os.makedirs(log_dir, exist_ok=True)
 
     logger.info("Connect to the databases")
-    logger.debubg("Connect to processing database")
+    logger.debug("Connect to processing database")
     dbconfig = config['processing_database']
     db.init(**dbconfig)
     
     createTables()
     
-    logger.debubg("Connect to fact database")
+    logger.debug("Connect to fact database")
     fact_db_config = config['fact_database']
     connect_database(fact_db_config)
 
     logger.info("Processing all new files and yet not processed files into the db")
-    logger.degub("Getting all new files")
+    logger.debug("Getting all new files")
     df = getAllNewFiles(limit)
     logger.info("Found: {} new files start processing".format(len(df)))
     newFiles = []
