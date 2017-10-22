@@ -6,7 +6,7 @@ import os
 import numpy as np
 import pandas as pd
 from fact.credentials import get_credentials
-from fact.factdb import *
+from fact.factdb import (RunInfo, RawFileAvailISDCStatus, connect_database)
 from fact.factdb.utils import read_into_dataframe
 
 from erna.automatic_processing.qsub import (get_current_jobs, build_qsub_command)
