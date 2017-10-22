@@ -93,9 +93,11 @@ def createTables():
     db.create_tables([Event, Files], safe=True)
 
 
-def getAllNewFiles():
+def getAllNewFiles(limit=None):
     """
     Returns all files that are currently not part of the ProcessingInfo db
+    
+    @limit the maximum amount of files to read
     """
     query = (
         RunInfo.select(
@@ -109,6 +111,9 @@ def getAllNewFiles():
         .where((RunInfo.fruntypekey == 2)|(RunInfo.fruntypekey == 1))
         .where(RunInfo.fdrsstep.is_null(True))
     )
+    
+    if limit:
+        query = query.limit(limit)
     
     df = read_into_dataframe(query)
     return df
@@ -191,6 +196,9 @@ def createQsub(file, log_dir, env, kwargs):
     '--verbose', '-v', help='Set log level of "erna" to debug', is_flag=True,
 )
 @click.option('--noProcess', is_flag=True, help='Only fill in the processing database')
+@click.option('--limit', type=int, default=None,
+    help='specify if the amount of new files should be limited and by how much.'
+)
 def processNewFiles(rawfolder, password, config):
     """
     Processes all non processed files into the EventList db
@@ -217,15 +225,23 @@ def processNewFiles(rawfolder, password, config):
     walltime = config['submitter']['walltime']
     os.makedirs(logdir, exist_ok=True)
 
+    logger.info("Connect to the databases")
+    logger.debubg("Connect to processing database")
     dbconfig = config['processing_database']
     db.init(**dbconfig)
     
     createTables()
+    
+    logger.debubg("Connect to fact database")
+    fact_db_config = config['fact_database']
+    connect_database(fact_db_config)
 
     logger.info("Processing all new files and yet not processed files into the db")
-    logger.info("Update the Processing db")
-    df = getAllNewFiles()
+    logger.degub("Getting all new files")
+    df = getAllNewFiles(limit)
+    logger.info("Found: {} new files start processing".format(len(df)))
     newFiles = []
+    logger.debug("Prepare the new files for the database")
     for d in df:
         night = d['night']
         runId = d['runId']
@@ -233,7 +249,7 @@ def processNewFiles(rawfolder, password, config):
         ext = os.path.splitext(path)[1][1:]
         if not path:
             # New file but missing on the isdc
-            newFiles.append({'night':night, 'runId':runId, 'fileType':0, 'status':0, 'isdc':True})
+            newFiles.append({'night':night, 'runId':runId, 'fileType':0, 'status':0, 'isdc':False})
         else:
             newFiles.append({'night':night, 'runId':runId, 'fileType':FileType[ext].value, 'status':0, 'isdc':True})
     logger.info("Insert all new Files")
