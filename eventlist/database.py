@@ -30,12 +30,6 @@ logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 class MyRetryDB(RetryOperationalError, pew.MySQLDatabase):
     pass
 
-class RunType(Enum):
-    data = 1
-    pedestal = 2
-    ped_and_lp_ext = 11
-    custom = 100
-
 
 dbconfig = {
     "host" : "fact-mysql.app.tu-dortmund.de",

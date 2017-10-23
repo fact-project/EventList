@@ -4,6 +4,12 @@ import pandas as pd
 
 log = logging.getLogger(__name__)
 
+class RunType(Enum):
+    data = 1
+    pedestal = 2
+    ped_and_lp_ext = 11
+    custom = 100
+
 from astropy.io import fits
 def processFitsFile(file):
     """
