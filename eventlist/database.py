@@ -242,23 +242,25 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
     df = getAllNewFiles(limit)
     logger.info("Found: {} new files start processing".format(len(df)))
     
-    
-    newFiles = []
-    logger.debug("Prepare the new files for the database")
-    for index, row in df.iterrows():
-        night = row['night']
-        runId = row['runId']
-        path = returnPathIfExists(rawfolder, night, runId)
-        if not path:
-            # New file but missing on the isdc
-            newFiles.append({'night':night, 'runId':runId, 'extension':"", 'status':0, 'isdc':False})
-        else:
-            ext = os.path.splitext(path)[1][1:]
-            newFiles.append({'night':night, 'runId':runId, 'extension':ext, 'status':0, 'isdc':True})
-    logger.info("Insert all new Files")
-    with processing_db.atomic():
-        ProcessingInfo.insert_many(newFiles).execute()
-    
+    if len(df)!=0:
+        newFiles = []
+        logger.debug("Prepare the new files for the database")
+        for index, row in df.iterrows():
+            night = row['night']
+            runId = row['runId']
+            path = returnPathIfExists(rawfolder, night, runId)
+            if not path:
+                # New file but missing on the isdc
+                newFiles.append({'night':night, 'runId':runId, 'extension':"", 'status':0, 'isdc':False})
+            else:
+                ext = os.path.splitext(path)[1][1:]
+                newFiles.append({'night':night, 'runId':runId, 'extension':ext, 'status':0, 'isdc':True})
+        logger.info("Insert all new Files")
+        with processing_db.atomic():
+            ProcessingInfo.insert_many(newFiles).execute()
+    else:
+        logger.info("No new files for the processing database")
+
     if no_process:
         logger.info("Not processing files")
         logger.info("Finished")
@@ -283,7 +285,7 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
     try:
         for index, row in df.iterrows():
             if limit is not None:
-                if indes==limit:
+                if index==limit:
                     logger.info("Reached allowed limit of files to process")
                     break
             night = row['night']
