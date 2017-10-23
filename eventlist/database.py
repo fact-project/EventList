@@ -351,7 +351,7 @@ def fillEventsFile(config, file, password, ignore_db):
     if not config:
         logger.error("No config specified, can't work without it")
         return
-    conifg, configpath = load_config(config)
+    config, configpath = load_config(config)
     
     
     dbconfig  = config['processing_database']
