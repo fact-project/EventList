@@ -152,7 +152,6 @@ def returnPathIfExists(rawfolder, night, runId):
     day = night%100
     
     path = os.path.join(rawfolder, "{:04d}/{:02d}/{:02d}/{:08d}_{:03d}.fits".format(year,month,day,night,runId))
-    print(path)
     
     if os.path.exists(path+".fz"):
         return path+".fz"
