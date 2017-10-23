@@ -146,7 +146,6 @@ def returnPathIfExists(rawfolder, night, runId):
     day = night%100
     
     path = os.path.join(rawfolder, "{:04d}/{:02d}/{:02d}/{:08d}_{:03d}.fits".format(year,month,day,night,runId))
-    print(path)
     
     if os.path.exists(path+".fz"):
         return path+".fz"
@@ -283,6 +282,10 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
     logger.info("Process all unprocessed files")
     try:
         for index, row in df.iterrows():
+            if limit is not None:
+                if indes==limit:
+                    logger.info("Reached allowed limit of files to process")
+                    break
             night = row['night']
             runId = row['runId']
             
@@ -396,8 +399,7 @@ def fillEventsFile(config, file, ignore_db):
         Event.insert_many(df.to_dict(orient='records')).execute()
         
         logger.debug("Update processing db")
-        print(fileInfo.night, fileInfo.runId, fileInfo.extension, fileInfo.isdc)
-        fileInfo.processed = 1
+        fileInfo.status = 1
         fileInfo.save()
 
     logger.info("Finished Processing")    
