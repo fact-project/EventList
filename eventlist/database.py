@@ -152,6 +152,7 @@ def returnPathIfExists(rawfolder, night, runId):
     day = night%100
     
     path = os.path.join(rawfolder, "{:04d}/{:02d}/{:02d}/{:08d}_{:03d}.fits".format(year,month,day,night,runId))
+    print(path)
     
     if os.path.exists(path+".fz"):
         return path+".fz"
@@ -183,7 +184,7 @@ def createQsub(file, log_dir, env, kwargs):
         ['which', 'processFileEventList']
     ).decode().strip()
     
-    
+    env["FILE"] = file
     command = build_qsub_command(
         executable=executable,
         job_name="eventlist_"+basename,
@@ -227,7 +228,7 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
     
     interval = config['submitter']['interval'],
     max_queued_jobs = config['submitter']['max_queued_jobs'],
-    log_dir = config['submitter']['data_directory']
+    log_dir = os.path.join(config['submitter']['data_directory'], "logs")
     queue = config['submitter']['queue']
     walltime = config['submitter']['walltime']
     #os.makedirs(log_dir, exist_ok=True)
@@ -340,9 +341,8 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
 @click.option('--file', default=None, envvar='FILE',
     type=click.Path(exists=True, dir_okay=False, file_okay=True, readable=True)
 )
-@click.option('--password', default=None)
 @click.option('--ignore_db', is_flag=True, help="If given, ignore if the file is missing from the processing db and just add it")
-def fillEventsFile(config, file, password, ignore_db):
+def fillEventsFile(config, file, ignore_db):
     """
     Processes a file into the EventList db
     """
