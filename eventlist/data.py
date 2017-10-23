@@ -1,6 +1,7 @@
 import logging
 import os
 import pandas as pd
+from enum import Enum
 
 log = logging.getLogger(__name__)
 
@@ -80,12 +81,15 @@ def process_data_file(filename):
     basename = os.path.basename(filename)
     df = None
     if ext == ".gz":
+        log.debug("Processing gz file")
         if filename[-12:] == ".drs.fits.gz":
             log.info("Drs File Skipping")
             return
         df = processFitsFile(filename)
     elif ext == ".fz":
+        log.debug("Processing fz file")
         df = processZFitsFile(filename)
     else:
         log.error("Unknown extension: '"+ext+"' of file: '"+filename+"', skipping")
         return None
+    return df

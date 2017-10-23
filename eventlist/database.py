@@ -360,7 +360,8 @@ def fillEventsFile(config, file, ignore_db):
 
     basename = os.path.basename(file)
     night = int(basename[:8])
-    runId = int(basename[9:11])
+    runId = int(basename[9:12])
+    logger.debug("Basename: {}, Night: {}, runId: {}".format(basename, night, runId))
     df = None
     try:
         df = process_data_file(file)
@@ -370,8 +371,9 @@ def fillEventsFile(config, file, ignore_db):
         logger.error(str(e.args))
         logger.error("###end###\n")
 
-    if not df:
+    if df is None:
         logger.error("Couldn't process data file")
+        return
     logger.info("Update db")
     with processing_db.atomic():
         fileInfo = None
@@ -391,10 +393,11 @@ def fillEventsFile(config, file, ignore_db):
             return
         
         logger.debug("Insert Data")
-        Event.insert_many(**(df.to_dict(orient='records'))).execute()
+        Event.insert_many(df.to_dict(orient='records')).execute()
         
         logger.debug("Update processing db")
+        print(fileInfo.night, fileInfo.runId, fileInfo.extension, fileInfo.isdc)
         fileInfo.processed = 1
         fileInfo.save()
 
-    
+    logger.info("Finished Processing")    
