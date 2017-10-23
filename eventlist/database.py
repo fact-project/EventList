@@ -78,6 +78,9 @@ class ProcessingInfo(pew.Model):
     
 
 def createTables():
+    """
+    Connect to the processing db and create the tables if they don't exist yet
+    """
     processing_db.connect()
     processing_db.create_tables([Event, ProcessingInfo], safe=True)
 
@@ -309,13 +312,15 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
                 continue
             
             # create qsub command
-            cmd = create_qsub(path, log_dir, qsub_env, qsub_kwargs)
+            qsub_cmd = create_qsub(path, log_dir, qsub_env, qsub_kwargs)
             
+            logger.debug("Qsub command:")
+            logger.debug(qsub_cmd)
             # execute
             while True:
                 if len(queued_jobs) < max_queued_jobs:
                     logger.info("Sending to qsub")
-                    output = sp.check_output(cmd)
+                    output = sp.check_output(qsub_cmd)
                     logger.debug(output.decode().strip())
                     break
                 time.sleep(interval)
