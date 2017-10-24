@@ -132,9 +132,10 @@ def getAllNotProcessedFiles():
         ProcessingInfo.select(
             ProcessingInfo.night,
             ProcessingInfo.runId,
+            ProcessingInfo.extension,
         )
-        .where(ProcessingInto.processed == 0)
-        .where(ProcessingInto.isdc == True)
+        .where(ProcessingInfo.status == 0)
+        .where(ProcessingInfo.isdc == True)
     )
     
     df = pd.DataFrame(list(query.dicts()))
@@ -160,16 +161,17 @@ def getAllRunningFiles(jobs):
     """
     Get all files that are still running or are currently pending
     """
-    jobs[jobs.JB_name.str.startswith('eventlist_')]
-    files = jobs.JB_name.str[10:]
-    night = jobs.JB_name.str[10:18].astype(int)
-    runId = jobs.JB_name.str[19:22].astype(int)
+    jobs = jobs[jobs.name.str.startswith('eventlist_')]
+    
+    files = jobs.name.str[10:]
+    night = jobs.name.str[10:18].astype(int)
+    runId = jobs.name.str[19:22].astype(int)
     
     df = pd.DataFrame({'files':files, 'night':night, 'runId':runId})
     return df
 
 
-def createQsub(file, log_dir, env, kwargs):
+def create_qsub(file, log_dir, env, kwargs):
     """
     Creates a new qsub to process a single file into the eventlist database
     """
@@ -222,11 +224,14 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
     config, configpath = load_config(config)    
 
     
-    interval = config['submitter']['interval'],
-    max_queued_jobs = config['submitter']['max_queued_jobs'],
+    interval = config['submitter']['interval']
+    max_queued_jobs = config['submitter']['max_queued_jobs']
     log_dir = os.path.join(config['submitter']['data_directory'], "logs")
     queue = config['submitter']['queue']
     walltime = config['submitter']['walltime']
+    logger.debug("Config Data:")
+    logger.debug("Interval: {}, queue: {}, max queued: {}".format(interval, queue, max_queued_jobs))
+    logger.debug("walltime: {}, log dir: {}".format(walltime, log_dir))
     #os.makedirs(log_dir, exist_ok=True)
 
     logger.info("Connect to the databases")
@@ -299,13 +304,13 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
             month = (night%10000)//100
             day = night%100
         
-            path = os.path.join(rawfolder, "{:04d}/{:02d}/{:02d}/{:08d}_{:03d}.fits.{}".format(year, month, day, night, runID, ext))
-            logger.info("Processing night: {}, runId:{}".format(nigth, runId))
+            path = os.path.join(rawfolder, "{:04d}/{:02d}/{:02d}/{:08d}_{:03d}.fits.{}".format(year, month, day, night, runId, ext))
+            logger.info("Processing night: {}, runId:{}".format(night, runId))
             logger.info("  Path: "+path);
             
             logger.info("Get all still running or pending files")
             current_jobs = get_current_jobs()
-            runningFiles = getAllRunningFiles()
+            runningFiles = getAllRunningFiles(current_jobs)
             
             if ((runningFiles['night'] == night) & (runningFiles['runId'] == runId)).any():
                 logger.info("File already in processing skipping")
@@ -318,21 +323,25 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
             logger.debug(qsub_cmd)
             # execute
             while True:
-                if len(queued_jobs) < max_queued_jobs:
+                if len(current_jobs) < max_queued_jobs:
                     logger.info("Sending to qsub")
                     output = sp.check_output(qsub_cmd)
                     logger.debug(output.decode().strip())
                     break
+                logger.debug("Wait for jobs to clear up: {}/{}".format(len(current_jobs), max_queued_jobs))
                 time.sleep(interval)
+                current_jobs = get_current_jobs()
             time.sleep(interval)
             
     except (KeyboardInterrupt, SystemExit):
         logger.info('Shutting done')
-        log.info('Clean up running jobs')
+        logger.info('Clean up running jobs')
         current_jobs = get_current_jobs()
-        myjobs = jobs[jobs.JB_name.str.startswith('eventlist_')]
-        for job in myjobs:
-            sp.run(['qdel', job['JB_name']])
+        myjobs = current_jobs[current_jobs.name.str.startswith('eventlist_')]
+        logger.info("Removing {} jobs".format(len(myjobs)))
+        for index, job in myjobs.iterrows():
+            logger.debug("Close job: {}".format(job['name']))
+            sp.run(['qdel', job['name']])
     logger.info("Finished")
         
     
@@ -358,6 +367,7 @@ def fillEventsFile(config, file, ignore_db):
     
     
     dbconfig  = config['processing_database']
+    dbconfig['host'] = 'isdc-in04'
     processing_db.init(**dbconfig)
     
     createTables()
