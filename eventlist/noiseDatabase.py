@@ -78,8 +78,8 @@ def main(outdb):
     db.init(**dbconfig)
     db.connect()
     
-    #data = Event.select().where((Event.eventType == 1024) | (Event.eventType == 1))
-    data = Event.select().where((Event.eventType == 1) | (Event.eventType == 4))
+    data = Event.select().where((Event.eventType == 1024) | (Event.eventType == 1))
+    #data = Event.select().where((Event.eventType == 1) | (Event.eventType == 4))
     
     curNight = 0
     drsFiles = None

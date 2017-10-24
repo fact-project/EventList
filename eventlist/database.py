@@ -324,12 +324,13 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
             logger.debug(qsub_cmd)
             # execute
             while True:
-                if len(current_jobs) < max_queued_jobs:
+                pending_jobs = current_jobs.query('state == "pending"')
+                if len(pending_jobs) < max_queued_jobs:
                     logger.info("Sending to qsub")
                     output = sp.check_output(qsub_cmd)
                     logger.debug(output.decode().strip())
                     break
-                logger.debug("Wait for jobs to clear up: {}/{}".format(len(current_jobs), max_queued_jobs))
+                logger.debug("Wait for jobs to clear up: {}/{}".format(len(pending_jobs), max_queued_jobs))
                 time.sleep(interval)
                 current_jobs = get_current_jobs()
             time.sleep(interval)
