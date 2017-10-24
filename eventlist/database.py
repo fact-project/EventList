@@ -381,7 +381,7 @@ def write_eventlist_into_file(path, night, runId, ignore_db, df, output_folder):
     """
     Writes the event data into a file
     """
-    filename = os.path.basename(file)
+    filename = os.path.basename(path)
     
     output_path = os.path.join(output_folder, filename+".csv")
     
@@ -398,7 +398,6 @@ def write_eventlist_into_file(path, night, runId, ignore_db, df, output_folder):
 )
 @click.option('--ignore_db', is_flag=True, help="If given, ignore if the file is missing from the processing db and just add it")
 @click.option('--out_file', envvar='OUT_FILE', default = None, help="If given wirte into a file in the data directory")
-)
 def fillEventsFile(config, file, ignore_db, out_file):
     """
     Processes a file into the EventList db
@@ -431,16 +430,16 @@ def fillEventsFile(config, file, ignore_db, out_file):
     if df is None:
         logger.error("Couldn't process data file")
         return
-    if out_file is not None:
+    if out_file is None:
         logger.info("Update db")
         dbconfig  = config['processing_database']
         processing_db.init(**dbconfig)
         createTables()
-        write_eventlist_into_database(path, night, runId, ignore_db, df)
+        write_eventlist_into_database(file, night, runId, ignore_db, df)
     else:
         logger.info("Write data into file")
         output_folder = os.path.join(config['submitter']['data_directory'], "output")
-        write_eventlist_into_file(path, night, runId, ignore_db, df, output_folder)
+        write_eventlist_into_file(file, night, runId, ignore_db, df, output_folder)
 
     logger.info("Finished Processing")    
 
@@ -454,7 +453,7 @@ import glob
 )
 @click.option('--ignore_db', is_flag=True, help="If given, ignore if the file is missing from the processing db and just add it")
 @click.argument('datafolder', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True))
-def updateEventListFromFile(config, ignore_db, datafolder)
+def updateEventListFromFile(config, ignore_db, datafolder):
     logger.info("Loading config")
     if not config:
         logger.error("No config specified, can't work without it")
@@ -470,8 +469,6 @@ def updateEventListFromFile(config, ignore_db, datafolder)
     for path in files:
         logger.info("Process file: {}".format(path))
         df = pd.read_csv(path, index_col=False)
-        print(df)
-        return
         basename = os.path.basename(path)
         basename = os.path.splitext(basename)[0] # remove .csv
         
