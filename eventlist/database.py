@@ -281,6 +281,7 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
     qsub_env = {
         "WALLTIME": walltime,
         'EVENTLIST_CONFIG': configpath,
+        'OUT_FILE': 'True'
     }
     
     qsub_kwargs = {
@@ -344,57 +345,13 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
             sp.run(['qdel', job['name']])
     logger.info("Finished")
         
-    
 
-@click.command()
-@click.option(
-    '--config', '-c', envvar='EVENTLIST_CONFIG',
-    help='Config file, if not given, env EVENTLIST_CONFIG and ./eventlist.yaml will be tried'
-)
-@click.option('--file', default=None, envvar='FILE',
-    type=click.Path(exists=True, dir_okay=False, file_okay=True, readable=True)
-)
-@click.option('--ignore_db', is_flag=True, help="If given, ignore if the file is missing from the processing db and just add it")
-def fillEventsFile(config, file, ignore_db):
+
+
+def write_eventlist_into_database(path, night, runId, ignore_db, df):
     """
-    Processes a file into the EventList db
+    Writes the data into the eventlist database and updates the processing database
     """
-    logger.info("Loading config")
-    if not config:
-        logger.error("No config specified, can't work without it")
-        return
-    config, configpath = load_config(config)
-    
-    
-    dbconfig  = config['processing_database']
-    dbconfig['host'] = 'isdc-in04'
-    processing_db.init(**dbconfig)
-    
-    createTables()
-    
-    logger.info("Processing file: '"+file+"'")
-
-    if not os.path.exists(file):
-        logger.error("File does not exists")
-        return
-
-    basename = os.path.basename(file)
-    night = int(basename[:8])
-    runId = int(basename[9:12])
-    logger.debug("Basename: {}, Night: {}, runId: {}".format(basename, night, runId))
-    df = None
-    try:
-        df = process_data_file(file)
-    except:
-        logger.error("Caught: "+str(type(e)))
-        logger.error("###File: "+file+" ###\n")
-        logger.error(str(e.args))
-        logger.error("###end###\n")
-
-    if df is None:
-        logger.error("Couldn't process data file")
-        return
-    logger.info("Update db")
     with processing_db.atomic():
         fileInfo = None
         try:
@@ -419,4 +376,112 @@ def fillEventsFile(config, file, ignore_db):
         fileInfo.status = 1
         fileInfo.save()
 
+
+def write_eventlist_into_file(path, night, runId, ignore_db, df, output_folder):
+    """
+    Writes the event data into a file
+    """
+    filename = os.path.basename(file)
+    
+    output_path = os.path.join(output_folder, filename+".csv")
+    
+    df.to_csv(output_path, index=False)
+
+
+@click.command()
+@click.option(
+    '--config', '-c', envvar='EVENTLIST_CONFIG',
+    help='Config file, if not given, env EVENTLIST_CONFIG and ./eventlist.yaml will be tried'
+)
+@click.option('--file', default=None, envvar='FILE',
+    type=click.Path(exists=True, dir_okay=False, file_okay=True, readable=True)
+)
+@click.option('--ignore_db', is_flag=True, help="If given, ignore if the file is missing from the processing db and just add it")
+@click.option('--out_file', envvar='OUT_FILE', default = None, help="If given wirte into a file in the data directory")
+)
+def fillEventsFile(config, file, ignore_db, out_file):
+    """
+    Processes a file into the EventList db
+    """
+    logger.info("Loading config")
+    if not config:
+        logger.error("No config specified, can't work without it")
+        return
+    config, configpath = load_config(config)
+    
+    logger.info("Processing file: '"+file+"'")
+
+    if not os.path.exists(file):
+        logger.error("File does not exists")
+        return
+
+    basename = os.path.basename(file)
+    night = int(basename[:8])
+    runId = int(basename[9:12])
+    logger.debug("Basename: {}, Night: {}, runId: {}".format(basename, night, runId))
+    df = None
+    try:
+        df = process_data_file(file)
+    except:
+        logger.error("Caught: "+str(type(e)))
+        logger.error("###File: "+file+" ###\n")
+        logger.error(str(e.args))
+        logger.error("###end###\n")
+
+    if df is None:
+        logger.error("Couldn't process data file")
+        return
+    if out_file is not None:
+        logger.info("Update db")
+        dbconfig  = config['processing_database']
+        processing_db.init(**dbconfig)
+        createTables()
+        write_eventlist_into_database(path, night, runId, ignore_db, df)
+    else:
+        logger.info("Write data into file")
+        output_folder = os.path.join(config['submitter']['data_directory'], "output")
+        write_eventlist_into_file(path, night, runId, ignore_db, df, output_folder)
+
     logger.info("Finished Processing")    
+
+
+
+import glob
+@click.command()
+@click.option(
+    '--config', '-c', envvar='EVENTLIST_CONFIG',
+    help='Config file, if not given, env EVENTLIST_CONFIG and ./eventlist.yaml will be tried'
+)
+@click.option('--ignore_db', is_flag=True, help="If given, ignore if the file is missing from the processing db and just add it")
+@click.argument('datafolder', type=click.Path(exists=True, dir_okay=True, file_okay=False, readable=True))
+def updateEventListFromFile(config, ignore_db, datafolder)
+    logger.info("Loading config")
+    if not config:
+        logger.error("No config specified, can't work without it")
+        return
+    config, configpath = load_config(config)
+
+    dbconfig  = config['processing_database']
+    processing_db.init(**dbconfig)
+    createTables()
+    
+    
+    files = glob.glob(datafolder+"/*.csv")
+    for path in files:
+        logger.info("Process file: {}".format(path))
+        df = pd.read_csv(path, index_col=False)
+        print(df)
+        return
+        basename = os.path.basename(path)
+        basename = os.path.splitext(basename)[0] # remove .csv
+        
+        night = int(basename[:8])
+        runId = int(basename[9:12])
+        
+        write_eventlist_into_database(basename, night, runId, ignore_db, df)
+        
+        logger.debug("Removing file")
+        os.remove(path)
+    
+    logger.info("Finished inserting eventlist data from files")
+    
