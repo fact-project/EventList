@@ -3,7 +3,7 @@ This package contains tools to create a eventlist data base, which works as an i
 
 Furthermore, it provides tools to extract subsets of this databases as line based json files. The subset is created based on filters according to the events (to be exact the runs) properties in the RunINfo Database of FACT. With this allows you to get e.g. all pedestal events with currents above 6uA (non-dark night light conditions).
 
-## Json subset extraction
+## JSON subset extraction
 There are two excecutables for this job: `noisedb` and `noisedb_condition`   
 
 * `noisedb` - 
