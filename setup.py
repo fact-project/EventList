@@ -32,6 +32,7 @@ setup(
         'console_scripts': [
             'processFileEventList = eventlist.database:fillEventsFile',
             'noisedb = eventlist.noiseDatabase:main',
+            'noisedb_condition = eventlist.noiseDatabase:getNoiseDBcondition',
             'updateEventList = eventlist.database:processNewFiles',
             'updateEventListFile = eventlist.database:updateEventListFromFile',
         ],

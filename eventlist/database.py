@@ -481,13 +481,13 @@ def updateEventListFromFile(config, ignore_db, datafolder):
 
         duplicates = df.duplicated(['night','runId','eventNr']).any()
         if duplicates:
-           logger.info("An entry exists twice")
-           logger.info("Set as error status and rename")
-       	   info = ProcessingInfo.get((ProcessingInfo.night==night)&(ProcessingInfo.runId==runId))
-           info.status=2
-           info.save()
-       	   os.rename(path, path+".dup")
-       	   continue
+            logger.info("An entry exists twice")
+            logger.info("Set as error status and rename")
+            info = ProcessingInfo.get((ProcessingInfo.night==night)&(ProcessingInfo.runId==runId))
+            info.status=2
+            info.save()
+            os.rename(path, path+".dup")
+            continue
 
         
         write_eventlist_into_database(basename, night, runId, ignore_db, df)
