@@ -159,6 +159,9 @@ def getAllRunningFiles(jobs):
     """
     Get all files that are still running or are currently pending
     """
+    if jobs.empty:
+        return pd.DataFrame(columns=['files','night','runId'])
+    
     jobs = jobs[jobs.name.str.startswith('eventlist_')]
     
     files = jobs.name.str[10:]
@@ -310,7 +313,7 @@ def processNewFiles(rawfolder, no_process, config, limit, verbose):
             logger.info("Get all still running or pending files")
             current_jobs = get_current_jobs()
             runningFiles = getAllRunningFiles(current_jobs)
-            
+            # TODO check for finished files here also
             if ((runningFiles['night'] == night) & (runningFiles['runId'] == runId)).any():
                 logger.info("File already in processing skipping")
                 continue
