@@ -4,9 +4,7 @@ import click
 from glob import glob
 import os
 import subprocess as sp
-import numpy as np
 import pandas as pd
-from fact.credentials import get_credentials
 from fact.factdb import (RunInfo, RawFileAvailISDCStatus, connect_database)
 
 from erna.automatic_processing.qsub import (get_current_jobs, build_qsub_command)
@@ -445,8 +443,6 @@ def fillEventsFile(config, file, ignore_db, out_file):
     logger.info("Finished Processing")    
 
 
-
-import glob
 @click.command()
 @click.option(
     '--config', '-c', envvar='EVENTLIST_CONFIG',
