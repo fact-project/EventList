@@ -19,6 +19,9 @@ processing_db_config = {
 
 
 class Event(pew.Model):
+    """
+    Eventlist database model
+    """
     night = pew.IntegerField()
     runId = pew.SmallIntegerField()
     eventNr = pew.IntegerField()
@@ -40,11 +43,17 @@ class ProcessStatus(Enum):
     error = 2
     
 class ProcessingInfo(pew.Model):
+    """
+    ProcessingInfo Database Model
+    """
     night = pew.IntegerField()
     runId = pew.SmallIntegerField()
     extension = pew.CharField(6)
     status = pew.SmallIntegerField()
-    isdc = pew.BooleanField()
+    # each supported filesystem has a field below
+    isdc = pew.BooleanField(default=False)
+    fhgfs = pew.BooleanField(default=False)
+    bigtank = pew.BooleanField(default=False)
     
     class Meta:
         database = processing_db
@@ -52,6 +61,18 @@ class ProcessingInfo(pew.Model):
         indexes = (
             (('night', 'runId'), True),
         )
+    
+    def getFileSystems():
+        """
+        Returns the supported filesystems
+        """
+        return ['isdc', 'fhgfs', 'bigtank']
+    
+    def isSupported(fs):
+        """
+        Checks if the given filesystem is supported
+        """
+        return fs in ProcessingInfo.getFileSystems()
     
 
 def connect_processing_db(config):

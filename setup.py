@@ -30,11 +30,12 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'processFileEventList = eventlist.database:fillEventsFile',
+            'eventListProcessFile = eventlist.scripts.eventListProcessFile:eventListProcessFile',
             'noisedb = eventlist.noiseDatabase:main',
             'noisedb_condition = eventlist.noiseDatabase:getNoiseDBcondition',
             'updateEventList = eventlist.database:processNewFiles',
-            'updateEventListFile = eventlist.database:updateEventListFromFile',
+            'fillEventListFromCSVFile = eventlist.database.scripts.updateEventListFromCSVFile:updateEventListFromCSVFile',
+            'updateEventListFSStatus = eventlist.scripts.updateEventlistFSStatus:updateEventlistFSStatus'
         ],
     },
 )

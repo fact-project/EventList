@@ -1,7 +1,4 @@
-import peewee as pew
 import click
-from glob import glob
-import os
 import numpy as np
 
 import pandas as pd
@@ -15,11 +12,14 @@ from .utils import load_config
 import logging
 import sys
 
-logger = logging.getLogger('N')
+logger = logging.getLogger('Noise_Databse')
 logger.setLevel(logging.DEBUG)
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 def getDrsFiles(night):
+    """
+    Get all the drs files for the given night and return as a dataframe
+    """
     query = (
         RunInfo.select(
             RunInfo.fnight.alias("NIGHT"),
@@ -36,6 +36,10 @@ def getDrsFiles(night):
     return df
 
 def getClosestDrsFile(drsFiles, startTime):
+    """
+    Given a dataframe containing the drsfiles and a starttime calculate
+    the closest two drs files to this startTime
+    """
     delta = np.abs(drsFiles['START']-startTime)
     # calculate closest
     minIndex = np.argmin(delta)
@@ -88,7 +92,7 @@ def getRunInfos(night, runid, condition=None):
 
     current = df.fCurrentsMedMean.values[0]
     zdDistMean = df.fZenithDistanceMean.values[0]
-    zdDistMax = df.fZenithDistanceMax.values[0]
+    #zdDistMax = df.fZenithDistanceMax.values[0]
     source = df.fSourceName.values[0]
     moonZdDist = df.fMoonZenithDistance.values[0]
     return [current, zdDistMean, source, moonZdDist]
@@ -115,19 +119,21 @@ def main(outdb, config, datacheck, firstnight, lastnight, condition, limitevents
     password = dict(creds['sandbox'])['password']
     processing_db_config["user"] = 'fact'
     processing_db_config["password"] = password
+
+    logger.info("Connecting to DB")
     connect_processing_db(processing_db_config)
     
     # get all Events that are pedestal Events (pedestals, interleave pedestal and gps trigger)
-    print("Create query")
+    logger.info("Create query")
     query = Event.select().where((Event.eventType == 1024) | (Event.eventType == 1)).limit(limitevents)
     if firstnight is not None:
-        print("First night to consider: {}".format(firstnight))
+        logger.info("First night to consider: {}".format(firstnight))
         query = query.where(Event.night>=firstnight)
     if lastnight is not None:
-        print("Last night to consider: {}".format(lastnight))
+        logger.info("Last night to consider: {}".format(lastnight))
         query = query.where(Event.night<=lastnight)
-    print("Created Query")
-    print(query)
+    logger.info("Created Query")
+    logger.debug(query)
     
     curNight = 0
     drsFiles = None
@@ -190,9 +196,10 @@ from .conditions import conditions
 @click.option('--firstnight', '-f', type=int, help='First night to consider')
 @click.option('--lastnight', '-l', type=int, help='Last night to consider')
 @click.option('--condition', help='Only use events that fullfill this condition type')
+@click.option('--fs', default='isdc', help='Which filesystem to use: [isdc,fhgfs,bigtank]')
 @click.option('--source', help='Which source should be choosen')
 @click.argument('outdb', type=click.Path(exists=False, dir_okay=False, file_okay=True, readable=True) )
-def getNoiseDBcondition(outdb, config, datacheck, firstnight, lastnight, condition, source):
+def getNoiseDBcondition(outdb, config, datacheck, firstnight, lastnight, condition, source, fs):
     """
     Create the noisedb from the EventListDB given a set of conditions to the used runs
     """
@@ -202,6 +209,7 @@ def getNoiseDBcondition(outdb, config, datacheck, firstnight, lastnight, conditi
         return
     config, configpath = load_config(config)
 
+    logger.debug("Connect to processing database")
     dbconfig  = config['processing_database']
     connect_processing_db(dbconfig)
     
@@ -215,8 +223,10 @@ def getNoiseDBcondition(outdb, config, datacheck, firstnight, lastnight, conditi
         .join(Source, on=(Source.fsourcekey == RunInfo.fsourcekey))
     )
     if firstnight is not None:
+        logger.debug("Add condition for first night: {}".format(firstnight))
         query = query.where(RunInfo.fnight >= firstnight)
     if lastnight is not None:
+        logger.debug("Add condition for last night: {}".format(lastnight))
         query = query.where(RunInfo.fnight <= lastnight)
     
     if condition is not None:
@@ -224,11 +234,12 @@ def getNoiseDBcondition(outdb, config, datacheck, firstnight, lastnight, conditi
         for c in cond:
             query = query.where(c)
     if source is not None:
+        logger.debug("Add condition for source: {}".format(source))
         query = query.where(Source.fsourcename==source)
 
     df_runinfo = pd.DataFrame(list(query.dicts()))
     
-    logger.info("Possible Runs: {}".format(len(df_runinfo)))
+    logger.info("Amout of admissable Runs: {}".format(len(df_runinfo)))
     
     # get all processed files
     query = ProcessingInfo.select(ProcessingInfo.night, ProcessingInfo.runId).where(ProcessingInfo.status==1)
@@ -236,6 +247,16 @@ def getNoiseDBcondition(outdb, config, datacheck, firstnight, lastnight, conditi
         query = query.where(ProcessingInfo.night >= firstnight)
     if lastnight is not None:
         query = query.where(ProcessingInfo.night <= lastnight)
+    
+    # get all files that are still on the fiven filesystem
+    if fs == 'isdc':
+        query = query.where(ProcessingInfo.isdc == 1)
+    elif fs == 'fhgfs':
+        query = query.where(ProcessingInfo.fhgfs == 1)
+    elif fs == 'bigtank':
+        query = query.where(ProcessingInfo.bigtank == 1)
+    else:
+        raise Exception("Unknown filesystem: '{}'".format(fs))
     
     df_processinginfo = pd.DataFrame(list(query.dicts()))
     logger.info("Possible processed runs: {}".format(len(df_processinginfo)))
@@ -250,11 +271,9 @@ def getNoiseDBcondition(outdb, config, datacheck, firstnight, lastnight, conditi
     runInfos = None
     
     noiseData = []
-    offset = 0
-    print("Process events")
-    hadEvents = True
+    logger.info("Process events")
     for index, row in df_processedruns.iterrows():
-        print("Processinf Run: {}_{}".format(row['night'],row['runId']))
+        logger.info("Processing Run: {}_{}".format(row['night'],row['runId']))
         query = ( Event.select()
                 .where(Event.night==row['night'])
                 .where(Event.runId==row['runId'])
@@ -264,30 +283,37 @@ def getNoiseDBcondition(outdb, config, datacheck, firstnight, lastnight, conditi
             # check if the night changed if yes load the drs files for that night
             night = d.night
             if night != curNight:
-                print("New night to process: "+str(night))
+                logger.info("New night to process: "+str(night))
                 curNight = night
                 drsFiles = getDrsFiles(night)
-                print("Drs Files for current night:")
-                print(drsFiles)
+                logger.info("Drs Files for current night:")
+                logger.info(drsFiles)
+                curRunId = -1 # the night changed so the curRunId changed too
+            # check if the run changed if yes recalculate the closest drs file
             runId = d.runId
             if curRunId != runId:
-                print("New runId to process: "+str(runId))
+                logger.info("New runId to process: "+str(runId))
                 curRunId = runId
                 startTime = np.datetime64(datetime.utcfromtimestamp(d.UTC))
                 #print(startTime)
                 closestDrsFiles = getClosestDrsFile(drsFiles, startTime)
-                print("Drs files for current run: {}".format(closestDrsFiles))
+                logger.info("Drs files for current run: {}".format(closestDrsFiles))
                 runInfos = getRunInfos(night, runId)
-                print("Runinfos:")
-                print(runInfos)
+                logger.info("Runinfos:")
+                logger.info(runInfos)
+            # infos about the runs are missing ignore
             if runInfos is None:
+                logger.error("Missing run infos for run: {}_{}".format([night,  runId]))
                 continue
 
             #print(d.eventNr)
             res = [d.eventNr, d.UTC, d.night, d.runId, closestDrsFiles[0], closestDrsFiles[1]] + runInfos
             noiseData.append(res)
     
+    logger.info("Finished fetching all events. Creating database.")
+    
     df_temp = pd.DataFrame(noiseData, columns=
                 ['eventNr', 'UTC','NIGHT','RUNID', 'drs0', 'drs1',
                  'currents', 'Zd', 'source','moonZdDist'])
     df_temp.to_json(outdb, orient='records', lines=True)
+    logger.info("Finished")

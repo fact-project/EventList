@@ -12,9 +12,11 @@ class RunType(Enum):
     custom = 100
 
 from astropy.io import fits
+
+
 def processFitsFile(file):
     """
-    Creates a eventlist from a Fits File
+    Creates an eventlist from a fits File
     """
     hdu = fits.open(file)
     table = hdu[1]
@@ -46,7 +48,7 @@ def processFitsFile(file):
 from zfits import FactFits
 def processZFitsFile(file):
     """
-    Creates a eventlist from a ZFitsFile
+    Creates an eventlist from a ZFitsFile
     """
     f = FactFits(file)
     header = f.header()
@@ -75,10 +77,10 @@ def processZFitsFile(file):
 
 def process_data_file(filename):
     """
-    Create a eventlist of all the events in the given file and return it
+    Creates an eventlist of all the events in the given file and return it
     """
     ext = os.path.splitext(filename)[1]
-    basename = os.path.basename(filename)
+    # basename = os.path.basename(filename)
     df = None
     if ext == ".gz":
         log.debug("Processing gz file")
