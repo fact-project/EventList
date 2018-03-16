@@ -51,11 +51,14 @@ def updateEventlistFSStatus(rawfolder, config, fs):
         return
     config, configpath = load_config(config)
 
+    logger.info("Connecting to processing db")
     dbconfig  = config['processing_database']
     connect_processing_db(dbconfig)
 
     # glob all files from the raw folder and create a set of all the existing files
+    logger.info("Searching for files in: {}".format(rawfolder))
     filesGlob = glob(rawfolder+"/*/*/*/*.fits.?z")
+    logger.info("Found {} files.".format(len(filesGlob)))
     filesSet = Set([pathDictToInt(parse(x)) for x in filesGlob])
     
     query = (ProcessingInfo.select())

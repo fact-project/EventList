@@ -132,7 +132,7 @@ def get_current_jobs_SGE(user=None):
     df['submission_time'] = pd.to_datetime(df['submission_time'])
     return df
 
-def get_jobs(engine='SGE'):
+def get_current_jobs(engine='SGE'):
     """
     Returns the current running jobs
     """

@@ -5,7 +5,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def load_config(filename=None):
+def load_config(filename=None, environ_name='EVENTLIST_CONFIG'):
     '''
     load a yaml config file
 
@@ -14,8 +14,8 @@ def load_config(filename=None):
     the current directory
     '''
     if filename is None:
-        if 'EVENTLIST_CONFIG' in os.environ:
-            filename = os.environ['EVENTLIST_CONFIG']
+        if environ_name in os.environ:
+            filename = os.environ[environ_name]
         elif os.path.isfile('eventlist.yaml'):
             filename = 'eventlist.yaml'
         else:
