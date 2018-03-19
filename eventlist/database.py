@@ -1,12 +1,9 @@
-import sys
 import peewee as pew
 import click
 import os
 import subprocess as sp
 import pandas as pd
 from fact.factdb import (RunInfo, RawFileAvailISDCStatus, connect_database)
-
-from erna.automatic_processing.qsub import (get_current_jobs, build_qsub_command)
 
 from .utils import load_config
 
@@ -18,7 +15,8 @@ from eventlist.model import *
 
 logger = logging.getLogger('EventList')
 logger.setLevel(logging.DEBUG)
-logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+#import sys
+#logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 
 
@@ -144,7 +142,7 @@ def add_new_files(limit, rawfolder, fs):
         logger.info("No new files for the processing database")
     logger.info("Added new files")
 
-from .qsub import create_qsub
+from .qsub import create_qsub,  get_current_jobs
 
 def nightToDate(night):
     year = night//10000

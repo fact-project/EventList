@@ -6,7 +6,6 @@ from eventlist.scripts.eventListProcessFile import write_eventlist_into_database
 from eventlist.model import *
 import logging
 import os
-import sys
 
 logger = logging.getLogger('EventList_CSVFile')
 logger.setLevel(logging.DEBUG)
