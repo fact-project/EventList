@@ -169,7 +169,8 @@ def nightToDate(night):
 @click.option('--limit_process', type=int, default=None,
     help='specify if the amount of files to process should be limited and by how much.'
 )
-def processNewFiles(rawfolder, no_process, config, limit_new,  limit_process, verbose,  ignore_new,  fs,  usefile):
+@click.option('--engine', help='Name of the grid engine used by the cluster.', type=click.Choice(['PBS', 'SGE',]), default='SGE')
+def processNewFiles(rawfolder, no_process, config, limit_new,  limit_process, verbose,  ignore_new,  fs,  usefile,  engine):
     """
     Processes all non processed files into the EventList db
     
@@ -256,7 +257,7 @@ def processNewFiles(rawfolder, no_process, config, limit_new,  limit_process, ve
             logger.info("  Path: "+path);
             
             logger.debug("Get all still running or pending files")
-            current_jobs = get_current_jobs()
+            current_jobs = get_current_jobs(engine)
             runningFiles = getAllRunningFiles(current_jobs)
             
             # TODO check for finished files here also

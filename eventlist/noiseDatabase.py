@@ -39,7 +39,8 @@ def getClosestDrsFile(drsFiles, startTime):
     Given a dataframe containing the drsfiles and a starttime calculate
     the closest two drs files to this startTime
     """
-    delta = np.abs(drsFiles['START']-startTime)
+    delta = np.abs(drsFiles['START']-pd.Timestamp(startTime))
+    
     # calculate closest
     minIndex = np.argmin(delta)
     # calculate second closest
