@@ -25,8 +25,8 @@ setup(
         'astropy',
         'click',
         'astropy',
-        'zfits',
-        'erna',
+        # 'zfits', #needs to be installed with the requirements.txt
+        # 'erna', #needs to be installed with the requirements.txt
     ],
     entry_points={
         'console_scripts': [
