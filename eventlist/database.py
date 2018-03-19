@@ -247,6 +247,8 @@ def processNewFiles(rawfolder, no_process, config, limit_new,  limit_process, ve
             runId = row['runId']
             
             ext = row['extension']
+            if len(ext) == 0: # if no extension is given assume fz
+                ext = 'fz'
             year,  month, day = nightToDate(night)
         
             path = os.path.join(rawfolder, "{:04d}/{:02d}/{:02d}/{:08d}_{:03d}.fits.{}".format(year, month, day, night, runId, ext))

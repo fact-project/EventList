@@ -2,13 +2,12 @@ import click
 import numpy as np
 
 import pandas as pd
-
-from fact.credentials import get_credentials
 from fact.factdb import *
 from fact.factdb.utils import read_into_dataframe
 
 from .utils import load_config
 
+from peewee import SQL
 import logging
 import sys
 
@@ -98,108 +97,21 @@ def getRunInfos(night, runid, condition=None):
     return [current, zdDistMean, source, moonZdDist]
 
 from datetime import datetime
-from .model import processing_db_config, Event, connect_processing_db, ProcessingInfo
+from .model import Event, connect_processing_db, ProcessingInfo
 
+from fact_conditions import create_condition_set
 @click.command()
 @click.option(
     '--config', '-c', envvar='EVENTLIST_CONFIG',
     help='Config file, if not given, env EVENTLIST_CONFIG and ./eventlist.yaml will be tried'
 )
-@click.option('--datacheck', '-d', help='The datacheck to use on the database')
 @click.option('--firstnight', '-f', type=int, help='First night to consider')
 @click.option('--lastnight', '-l', type=int, help='Last night to consider')
-@click.option('--condition', '-c', help='Only use events that fullfill this condition')
-@click.option('--limitevents', default=1000, help='It is not possible to process all events at once so we pull a limit of this every time')
-@click.argument('outdb', type=click.Path(exists=False, dir_okay=False, file_okay=True, readable=True) )
-def main(outdb, config, datacheck, firstnight, lastnight, condition, limitevents):
-    """
-    Create the noisedb from the EventListDB
-    """
-    creds = get_credentials()
-    password = dict(creds['sandbox'])['password']
-    processing_db_config["user"] = 'fact'
-    processing_db_config["password"] = password
-
-    logger.info("Connecting to DB")
-    connect_processing_db(processing_db_config)
-    
-    # get all Events that are pedestal Events (pedestals, interleave pedestal and gps trigger)
-    logger.info("Create query")
-    query = Event.select().where((Event.eventType == 1024) | (Event.eventType == 1)).limit(limitevents)
-    if firstnight is not None:
-        logger.info("First night to consider: {}".format(firstnight))
-        query = query.where(Event.night>=firstnight)
-    if lastnight is not None:
-        logger.info("Last night to consider: {}".format(lastnight))
-        query = query.where(Event.night<=lastnight)
-    logger.info("Created Query")
-    logger.debug(query)
-    
-    curNight = 0
-    drsFiles = None
-    curRunId = 0
-    closestDrsFiles = None
-    runInfos = None
-    
-    noiseData = []
-    offset = 0
-    print("Process events")
-    hadEvents = True
-    while query.iterator():
-        print("Process form offset: {}".format(offset))
-        query = query.offset(offset)
-        for d in query.iterator():
-            hadEvents = True
-            # check if the night changed if yes load the drs files for that night
-            night = d.night
-            if night != curNight:
-                print("New night to process: "+str(night))
-                curNight = night
-                drsFiles = getDrsFiles(night)
-                print("Drs Files for current night:")
-                print(drsFiles)
-            runId = d.runId
-            if curRunId != runId:
-                print("New runId to process: "+str(runId))
-                curRunId = runId
-                startTime = np.datetime64(datetime.utcfromtimestamp(d.UTC))
-                #print(startTime)
-                closestDrsFiles = getClosestDrsFile(drsFiles, startTime)
-                print("Drs files for current run: {}".format(closestDrsFiles))
-                runInfos = getRunInfos(night, runId, condition)
-                print("Runinfos:")
-                print(runInfos)
-            if runInfos is None:
-                continue
-
-            #print(d.eventNr)
-            res = [d.eventNr, d.UTC, d.night, d.runId, closestDrsFiles[0], closestDrsFiles[1]] + runInfos
-            noiseData.append(res)
-        if not hadEvents:
-            break
-        hadEvents = False
-        offset += limitevents
-    
-    df_temp = pd.DataFrame(noiseData, columns=
-                ['eventNr', 'UTC','NIGHT','RUNID', 'drs0', 'drs1',
-                 'currents', 'Zd', 'source','moonZdDist'])
-    df_temp.to_json(outdb, orient='records', lines=True)
-
-
-from .conditions import conditions
-@click.command()
-@click.option(
-    '--config', '-c', envvar='EVENTLIST_CONFIG',
-    help='Config file, if not given, env EVENTLIST_CONFIG and ./eventlist.yaml will be tried'
-)
-@click.option('--datacheck', '-d', help='The datacheck to use on the database')
-@click.option('--firstnight', '-f', type=int, help='First night to consider')
-@click.option('--lastnight', '-l', type=int, help='Last night to consider')
-@click.option('--condition', help='Only use events that fullfill this condition type')
+@click.option('--condition',  multiple=True,  help='Only use events that fullfill these condition types, can access condition set from fact_conditions.')
 @click.option('--fs', default='isdc', type=click.Choice(ProcessingInfo.getFileSystems()), help='Which filesystem to use: [isdc,fhgfs,bigtank]')
 @click.option('--source', help='Which source should be choosen')
 @click.argument('outdb', type=click.Path(exists=False, dir_okay=False, file_okay=True, readable=True) )
-def getNoiseDBcondition(outdb, config, datacheck, firstnight, lastnight, condition, source, fs):
+def getNoiseDBcondition(outdb, config, firstnight, lastnight, condition, source, fs):
     """
     Create the noisedb from the EventListDB given a set of conditions to the used runs
     """
@@ -229,10 +141,13 @@ def getNoiseDBcondition(outdb, config, datacheck, firstnight, lastnight, conditi
         logger.debug("Add condition for last night: {}".format(lastnight))
         query = query.where(RunInfo.fnight <= lastnight)
     
+    
     if condition is not None:
-        cond = conditions[condition]
-        for c in cond:
-            query = query.where(c)
+        conditionSet = create_condition_set(condition)
+        for c in conditionSet:
+            query = query.where(SQL(c))
+    
+        
     if source is not None:
         logger.debug("Add condition for source: {}".format(source))
         query = query.where(Source.fsourcename==source)

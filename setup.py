@@ -26,13 +26,12 @@ setup(
         'click',
         'astropy',
         # 'zfits', #needs to be installed with the requirements.txt
-        # 'erna', #needs to be installed with the requirements.txt
+        # 'fact_conditions', #needs to be installed with the requirements.txt
     ],
     entry_points={
         'console_scripts': [
             'el_generate_index_from_file = eventlist.scripts.eventListProcessFile:eventListProcessFile',
-            'el_create_noise_db = eventlist.noiseDatabase:main',
-            'el_create_noise_db_condition = eventlist.noiseDatabase:getNoiseDBcondition',
+            'el_create_noise_db = eventlist.noiseDatabase:getNoiseDBcondition',
             'el_update_index = eventlist.database:processNewFiles',
             'el_fill_index_from_csv = eventlist.database.scripts.updateEventListFromCSVFile:updateEventListFromCSVFile',
             'el_update_processing_db_fs_status = eventlist.scripts.updateEventlistFSStatus:updateEventlistFSStatus'
