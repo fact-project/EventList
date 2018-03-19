@@ -1,2 +1,2 @@
 
-from .fillEventListFromCSVFile import fillEventListFromCSVFile
+from .fillEventListFromCSVFile import updateEventListFromCSVFile

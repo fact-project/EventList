@@ -8,7 +8,7 @@ class MyRetryDB(RetryOperationalError, pew.MySQLDatabase):
 
 processing_db = MyRetryDB(None)
 
-__all__ = ['processing_db_config', 'Event', 'ProcessStatus', 'ProcessingInfo', 'connect_processing_db']
+__all__ = ['processing_db_config', 'Event', 'ProcessStatus', 'ProcessingInfo', 'connect_processing_db',  'processing_db']
 
 processing_db_config = {
     "host" : "fact-mysql.app.tu-dortmund.de",

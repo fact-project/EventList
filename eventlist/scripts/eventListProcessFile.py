@@ -1,7 +1,7 @@
 import click
 
-from .utils import load_config
-from .data import process_data_file
+from ..utils import load_config
+from ..data import process_data_file
 
 from eventlist.model import *
 from fact.path import parse

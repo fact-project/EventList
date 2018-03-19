@@ -112,7 +112,7 @@ def getAllRunningFiles(jobs):
     return df
 
 
-def add_new_files(limit,  fs):
+def add_new_files(limit, rawfolder, fs):
     """
     Checks for new files and adds them to the processing db
     
@@ -144,7 +144,7 @@ def add_new_files(limit,  fs):
         logger.info("No new files for the processing database")
     logger.info("Added new files")
 
-from qsub import create_qsub
+from .qsub import create_qsub
 
 def nightToDate(night):
     year = night//10000
@@ -205,14 +205,14 @@ def processNewFiles(rawfolder, no_process, config, limit_new,  limit_process, ve
     logger.info("Connect to the databases")
     logger.debug("Connect to processing database")
     dbconfig = config['processing_database']
-    connect_processing_db(**dbconfig)
+    connect_processing_db(dbconfig)
     
     logger.debug("Connect to fact database")
     fact_db_config = config['fact_database']
     connect_database(fact_db_config)
     
     if not ignore_new:
-        add_new_files(limit_new, fs)
+        add_new_files(limit_new, rawfolder, fs)
 
     if no_process:
         logger.info("Not processing files")

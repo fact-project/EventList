@@ -1,7 +1,7 @@
 import click
 
-from .utils import load_config
-from eventlist.eventListProcessFile import write_eventlist_into_database
+from ..utils import load_config
+from eventlist.scripts.eventListProcessFile import write_eventlist_into_database
 
 from eventlist.model import *
 import logging
@@ -10,7 +10,7 @@ import sys
 
 logger = logging.getLogger('EventList_CSVFile')
 logger.setLevel(logging.DEBUG)
-logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+#logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 @click.command()
 @click.option(

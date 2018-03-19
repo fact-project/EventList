@@ -5,16 +5,15 @@ from eventlist.utils import load_config
 import click
 
 from glob import glob
-from sets import Set
 
 import logging
-import sys
+#import sys
 
-from fact import parse
+from fact.path import parse
 
-logger = logging.getLogger('N')
+logger = logging.getLogger('updateEventlistFSStatus')
 logger.setLevel(logging.DEBUG)
-logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+#logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 
 def nightRunIdToInt(night, runId):
@@ -59,7 +58,7 @@ def updateEventlistFSStatus(rawfolder, config, fs):
     logger.info("Searching for files in: {}".format(rawfolder))
     filesGlob = glob(rawfolder+"/*/*/*/*.fits.?z")
     logger.info("Found {} files.".format(len(filesGlob)))
-    filesSet = Set([pathDictToInt(parse(x)) for x in filesGlob])
+    fileSet = set([pathDictToInt(parse(x)) for x in filesGlob])
     
     query = (ProcessingInfo.select())
     
@@ -69,7 +68,7 @@ def updateEventlistFSStatus(rawfolder, config, fs):
         runId = procInfo.runId
         id = nightRunIdToInt(night, runId)
         # file doesn't exist anymore
-        if id not in filesSet and getattr(procInfo, fs):
+        if id not in fileSet and getattr(procInfo, fs):
             setattr(procInfo,  fs,  0)
             procInfo.save()
         # file apeared again
