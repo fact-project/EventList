@@ -196,7 +196,7 @@ from .conditions import conditions
 @click.option('--firstnight', '-f', type=int, help='First night to consider')
 @click.option('--lastnight', '-l', type=int, help='Last night to consider')
 @click.option('--condition', help='Only use events that fullfill this condition type')
-@click.option('--fs', default='isdc', help='Which filesystem to use: [isdc,fhgfs,bigtank]')
+@click.option('--fs', default='isdc', type=click.Choice(ProcessingInfo.getFileSystems()), help='Which filesystem to use: [isdc,fhgfs,bigtank]')
 @click.option('--source', help='Which source should be choosen')
 @click.argument('outdb', type=click.Path(exists=False, dir_okay=False, file_okay=True, readable=True) )
 def getNoiseDBcondition(outdb, config, datacheck, firstnight, lastnight, condition, source, fs):
@@ -249,14 +249,7 @@ def getNoiseDBcondition(outdb, config, datacheck, firstnight, lastnight, conditi
         query = query.where(ProcessingInfo.night <= lastnight)
     
     # get all files that are still on the fiven filesystem
-    if fs == 'isdc':
-        query = query.where(ProcessingInfo.isdc == 1)
-    elif fs == 'fhgfs':
-        query = query.where(ProcessingInfo.fhgfs == 1)
-    elif fs == 'bigtank':
-        query = query.where(ProcessingInfo.bigtank == 1)
-    else:
-        raise Exception("Unknown filesystem: '{}'".format(fs))
+    query = query.where(getattr(ProcessingInfo, fs) == True)
     
     df_processinginfo = pd.DataFrame(list(query.dicts()))
     logger.info("Possible processed runs: {}".format(len(df_processinginfo)))
