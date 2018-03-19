@@ -6,10 +6,10 @@ Furthermore, it provides tools to extract subsets of this databases as line base
 ## JSON subset extraction
 There are two excecutables for this job: `noisedb` and `noisedb_condition`   
 
-* `noisedb` - 
+* `el_create_noise_db` - 
 Gets all pedestal events coordinates (meaning: night, run, event_num, event_type, runtype) from the EventList database. Then it delivers a subset according to the provided conditions
 
-* `noisedb_condition` - 
+* `el_create_noise_db_condition` - 
 Gets pedestal events coordinates (meaning: night, run, event_num, event_type, runtype) from the EventList database according to the provided conditions.
 
 # Installation
