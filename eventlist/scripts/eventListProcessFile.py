@@ -95,7 +95,7 @@ def eventListProcessFile(config, file, ignore_db, out_file):
     if out_file is None:
         logger.info("Fill into database")
         dbconfig  = config['processing_database']
-        connect_processing_db(**dbconfig)
+        connect_processing_db(dbconfig)
         write_eventlist_into_database(file, night, runId, ignore_db, df)
     else:
         logger.info("Write data into file: "+out_file)
