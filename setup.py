@@ -20,11 +20,13 @@ setup(
     packages=['eventlist'],
     #long_description=read('README'),
     install_requires=[
-        'peewee',
+        'peewee==2.*',
         'pyfact',
         'astropy',
         'click',
         'astropy',
+        'xmltodict',
+        'numpy',
         # 'zfits', #needs to be installed with the requirements.txt
         # 'fact_conditions', #needs to be installed with the requirements.txt
     ],
