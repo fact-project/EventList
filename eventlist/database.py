@@ -225,7 +225,7 @@ def processNewFiles(rawfolder, no_process, config, limit_new,  limit_process, ve
     qsub_env = {
         "WALLTIME": walltime,
         'EVENTLIST_CONFIG': configpath,
-        'OUT_FILE': str(usefile)
+    #    'OUT_FILE': str(usefile)
     }
     
     qsub_kwargs = {
