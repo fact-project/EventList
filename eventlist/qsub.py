@@ -84,7 +84,7 @@ def get_current_jobs_PBS(user=None):
         #'JAT_prio': 'priority',
     })
 
-    df['start_time'] = pd.to_datetime(df['start_time'])
+    df['start_time'] = pd.to_datetime(df['start_time'], unit='s')
     return df
 
 
