@@ -152,7 +152,7 @@ def create_qsub(file, log_dir, env, kwargs):
     basename = os.path.basename(file)
     
     executable = sp.check_output(
-        ['which', 'eventListProcessFile']
+        ['which', 'el_generate_index_from_file']
     ).decode().strip()
     
     env["FILE"] = file
