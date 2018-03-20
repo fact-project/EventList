@@ -139,7 +139,8 @@ def get_current_jobs(engine='SGE'):
     if engine=='SGE':
         return get_current_jobs_SGE()
     elif engine=='PBS':
-        return None
+        return get_current_jobs_PBS()
+
     raise NotImplementedError("Engine "+engine+" not supported")
 
 
