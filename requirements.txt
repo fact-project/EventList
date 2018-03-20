@@ -1,2 +1,2 @@
--e git://github.com/fact-project/erna.git@new_conditions#egg=erna
+-e git://github.com/fact-project/fact_conditions.git#egg=fact_conditions
 -e git://github.com/fact-project/zfits.git#egg=zfits

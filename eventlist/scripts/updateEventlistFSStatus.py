@@ -26,7 +26,7 @@ def pathDictToInt(pathDict):
     """
     Converts the path dict from the parse pyfact function into a unique number
     """
-    return nightRunIdToInt(pathDict['night'], pathDict['runId'])
+    return nightRunIdToInt(pathDict['night'], pathDict['run'])
 
 
 
