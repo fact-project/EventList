@@ -272,7 +272,7 @@ def processNewFiles(rawfolder, no_process, config, limit_new,  limit_process, ve
             logger.debug(qsub_cmd)
             # execute
             while True:
-                pending_jobs = current_jobs.query('state == "pending"')
+                pending_jobs = current_jobs.query('state == "Q"')
                 if len(pending_jobs) < max_queued_jobs:
                     logger.info("Sending to qsub")
                     output = sp.check_output(qsub_cmd)
