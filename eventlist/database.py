@@ -15,8 +15,8 @@ from eventlist.model import *
 
 logger = logging.getLogger('EventList')
 logger.setLevel(logging.DEBUG)
-#import sys
-#logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+import sys
+logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 
 
