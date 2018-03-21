@@ -144,7 +144,7 @@ def get_current_jobs(engine='SGE'):
     raise NotImplementedError("Engine "+engine+" not supported")
 
 
-def create_qsub(file, log_dir, env, kwargs):
+def create_qsub(file, log_dir, env, res,  kwargs):
     """
     Creates a new qsub to process a single file into the eventlist database
     """
@@ -157,11 +157,12 @@ def create_qsub(file, log_dir, env, kwargs):
     
     env["FILE"] = file
     command = build_qsub_command(
-        executable=executable,
-        job_name="eventlist_"+basename,
-        environment=env,
-        stdout = os.path.join(log_dir, 'eventlist_{}.o'.format(basename)),
-        stderr = os.path.join(log_dir, 'eventlist_{}.e'.format(basename)),
+        executable  = executable,
+        job_name    = "eventlist_"+basename,
+        environment = env,
+        resources   = res, 
+        stdout      = os.path.join(log_dir, 'eventlist_{}.o'.format(basename)),
+        stderr      = os.path.join(log_dir, 'eventlist_{}.e'.format(basename)),
         **kwargs,
     )
 
