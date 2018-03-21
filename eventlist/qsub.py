@@ -84,7 +84,7 @@ def get_current_jobs_PBS(user=None):
         #'JAT_prio': 'priority',
     })
 
-    df['start_time'] = pd.to_datetime(df['start_time'])
+    df['start_time'] = pd.to_datetime(df['start_time'], unit='s')
     return df
 
 
@@ -139,11 +139,12 @@ def get_current_jobs(engine='SGE'):
     if engine=='SGE':
         return get_current_jobs_SGE()
     elif engine=='PBS':
-        return None
+        return get_current_jobs_PBS()
+
     raise NotImplementedError("Engine "+engine+" not supported")
 
 
-def create_qsub(file, log_dir, env, kwargs):
+def create_qsub(file, log_dir, env, res,  kwargs):
     """
     Creates a new qsub to process a single file into the eventlist database
     """
@@ -151,16 +152,17 @@ def create_qsub(file, log_dir, env, kwargs):
     basename = os.path.basename(file)
     
     executable = sp.check_output(
-        ['which', 'eventListProcessFile']
+        ['which', 'el_generate_index_from_file']
     ).decode().strip()
     
     env["FILE"] = file
     command = build_qsub_command(
-        executable=executable,
-        job_name="eventlist_"+basename,
-        environment=env,
-        stdout = os.path.join(log_dir, 'eventlist_{}.o'.format(basename)),
-        stderr = os.path.join(log_dir, 'eventlist_{}.e'.format(basename)),
+        executable  = executable,
+        job_name    = "eventlist_"+basename,
+        environment = env,
+        resources   = res, 
+        stdout      = os.path.join(log_dir, 'eventlist_{}.o'.format(basename)),
+        stderr      = os.path.join(log_dir, 'eventlist_{}.e'.format(basename)),
         **kwargs,
     )
 

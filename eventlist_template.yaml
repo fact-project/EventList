@@ -18,5 +18,6 @@ submitter:
   mail_address: <mail_address>
   mail_settings: a
   group: fact
-  walltime: 00:10:00
+  walltime: 00:20:00
   queue: short
+  memory: 1gb

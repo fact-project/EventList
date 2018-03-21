@@ -1,4 +1,3 @@
-import peewee as pew
 import click
 import os
 import subprocess as sp
@@ -15,8 +14,8 @@ from eventlist.model import *
 
 logger = logging.getLogger('EventList')
 logger.setLevel(logging.DEBUG)
-#import sys
-#logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+import sys
+logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 
 
@@ -190,6 +189,15 @@ def processNewFiles(rawfolder, no_process, config, limit_new,  limit_process, ve
     config, configpath = load_config(config)    
 
     #get the configuration for the cluster job
+    location = config['submitter']['location']
+    if engine is None:
+        if location == 'isdc':
+            engine = 'SGE'
+        elif location == 'phido':
+            engine = 'PBS'
+        else:
+            raise NotImplementedError("Engine not specified and location '{}'unknown".format(location))
+    
     interval = config['submitter']['interval']
     max_queued_jobs = config['submitter']['max_queued_jobs']
     log_dir  = os.path.join(config['submitter']['data_directory'], "logs")
@@ -199,7 +207,7 @@ def processNewFiles(rawfolder, no_process, config, limit_new,  limit_process, ve
     logger.debug("Configuration data:")
     logger.debug("Interval: {}, queue: {}, max queued jobs: {}".format(interval, queue, max_queued_jobs))
     logger.debug("walltime: {}, log dir: {}, usefile: {}".format(walltime, log_dir,  usefile))
-    #os.makedirs(log_dir, exist_ok=True)
+    logger.debug("location: {}, engine: {}".format(location,  engine))
 
     logger.info("Connect to the databases")
     logger.debug("Connect to processing database")
@@ -222,16 +230,29 @@ def processNewFiles(rawfolder, no_process, config, limit_new,  limit_process, ve
     df = getAllNotProcessedFiles(fs)
     logger.info("Found: {} unporcessed files, start processing".format(len(df)))
     
+    logger.debug("Making sure folders exists")
+    os.makedirs(log_dir, exist_ok=True)
+    if usefile:
+        output_folder = os.path.join(config['submitter']['data_directory'], "output")
+        os.makedirs(output_folder,  exists_ok=True)
+    
     qsub_env = {
         "WALLTIME": walltime,
         'EVENTLIST_CONFIG': configpath,
-        'OUT_FILE': str(usefile)
     }
+    if usefile:
+        qsub_env['OUT_FILE'] = "True"
     
     qsub_kwargs = {
         'mail_address' : config['submitter']['mail_address'],
         'mail_settings' : config['submitter']['mail_settings'],
         'queue' : queue,
+    }
+    
+    qsub_res = {
+        'vmem' : config['submitter']['memory'],
+        'pmem' : config['submitter']['memory'],
+        'walltime' : walltime
     }
 
     logger.info("Process all unprocessed files")
@@ -266,13 +287,16 @@ def processNewFiles(rawfolder, no_process, config, limit_new,  limit_process, ve
                 continue
             
             # create qsub command
-            qsub_cmd = create_qsub(path, log_dir, qsub_env, qsub_kwargs)
+            qsub_cmd = create_qsub(path, log_dir, qsub_env, qsub_res,  qsub_kwargs)
             
             logger.debug("Qsub command:")
             logger.debug(qsub_cmd)
             # execute
             while True:
-                pending_jobs = current_jobs.query('state == "pending"')
+                if engine == "PBS":
+                    pending_jobs = current_jobs.query('state == "Q"')
+                else:
+                    pending_jobs = current_jobs.query('state == "pending"')
                 if len(pending_jobs) < max_queued_jobs:
                     logger.info("Sending to qsub")
                     output = sp.check_output(qsub_cmd)
@@ -294,46 +318,3 @@ def processNewFiles(rawfolder, no_process, config, limit_new,  limit_process, ve
             sp.run(['qdel', job['name']])
 
     logger.info("Finished")
-
-
-
-
-def write_eventlist_into_database(path, night, runId, ignore_db, df):
-    """
-    Writes the data into the eventlist database and updates the processing database
-    """
-    with processing_db.atomic():
-        fileInfo = None
-        try:
-            fileInfo = ProcessingInfo.get((ProcessingInfo.night == night) & (ProcessingInfo.runId == runId))
-        except pew.DoesNotExist:
-            if not ignore_db:
-                logger.error("The entry for the file is missing in the processing database")
-                return
-            else:
-                logger.info("The entry for the file is missing in the processing database, adding it.")
-                ext = os.path.splitext(path)[1][1:]
-                fileInfo = ProcessingInfo.create(night=night, runId=runId, extension=ext, status=0, isdc=False, fhgfs=False,  bigtank=False)
-
-        if fileInfo.status==1:
-            logger.error("File is already processed, have you started the processing twice on this file?")
-            return
-        
-        logger.debug("Insert Data")
-        Event.insert_many(df.to_dict(orient='records')).execute()
-        
-        logger.debug("Update processing db")
-        fileInfo.status = 1
-        fileInfo.save()
-
-
-def write_eventlist_into_file(path, night, runId, ignore_db, df, output_folder):
-    """
-    Writes the event data into a file
-    """
-    filename = os.path.basename(path)
-    
-    output_path = os.path.join(output_folder, filename+".csv")
-    
-    df.to_csv(output_path, index=False)
-
